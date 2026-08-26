@@ -27,3 +27,5 @@ backend/media/
 *.tfstate
 *.tfstate.*
 .terraform/
+# Archivos de sesión de VetCore copiados por error
+vetcore-session.json
