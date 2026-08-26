@@ -110,7 +110,7 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="size-5 text-primary" /> Acceso del socio
@@ -142,9 +142,9 @@ export function ShareDialog({
               <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row">
                 <div className="shrink-0 rounded-lg border border-border bg-white p-2">
                   {qr ? (
-                    <img src={qr} alt={`QR de ${memberName}`} className="size-40" />
+                    <img src={qr} alt={`QR de ${memberName}`} className="size-44" />
                   ) : (
-                    <div className="size-40 animate-pulse bg-muted" />
+                    <div className="size-44 animate-pulse bg-muted" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">
