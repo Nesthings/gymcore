@@ -173,9 +173,7 @@ def platform_gym_summary(gym_id: str, db: Session = Depends(get_db)) -> dict:
         {"gid": gym_id},
     ).scalar()
     payments = db.execute(
-        text(
-            "SELECT COUNT(*) FROM payments WHERE gym_id = :gid AND status = 'paid'"
-        ),
+        text("SELECT COUNT(*) FROM payments WHERE gym_id = :gid AND status = 'paid'"),
         {"gid": gym_id},
     ).scalar()
     return {
@@ -268,9 +266,11 @@ def platform_create_invite(body: dict, db: Session = Depends(get_db)) -> dict:
     dependencies=[Depends(require_roles("super-admin"))],
 )
 def platform_list_invites(db: Session = Depends(get_db)) -> list[dict]:
-    rows = db.execute(
-        text("SELECT * FROM gym_invites ORDER BY created_at DESC LIMIT 100")
-    ).mappings().all()
+    rows = (
+        db.execute(text("SELECT * FROM gym_invites ORDER BY created_at DESC LIMIT 100"))
+        .mappings()
+        .all()
+    )
     out = []
     for r in rows:
         out.append(

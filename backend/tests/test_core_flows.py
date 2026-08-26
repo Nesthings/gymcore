@@ -210,12 +210,109 @@ def test_suggestion_flow(db_session, make_gym, make_member):
     assert res["status"] == "new"
 
     count = db_session.scalar(
-        select(func.count())
-        .select_from(GymSuggestion)
-        .where(GymSuggestion.gym_id == gym.id)
+        select(func.count()).select_from(GymSuggestion).where(GymSuggestion.gym_id == gym.id)
     )
     assert count == 1
     row = db_session.scalar(select(GymSuggestion).limit(1))
     row.status = "read"
     db_session.commit()
     assert row.status == "read"
+
+
+# --------------------------------------------------------------------------
+# Logros, objetivos y pases
+# --------------------------------------------------------------------------
+
+
+def test_achievements_unlock_first_checkin(db_session, make_gym, make_member):
+    from sqlalchemy import text
+
+    from app.services.achievements import achievements_for
+
+    gym, _ = make_gym()
+    member = make_member(gym)
+    db_session.execute(
+        text("INSERT INTO checkins (gym_id, member_id, checked_at) VALUES (:gid, :mid, now())"),
+        {"gid": gym.id, "mid": member.id},
+    )
+    db_session.commit()
+    res = achievements_for(db_session, str(gym.id), str(member.id))
+    by_key = {i["key"]: i for i in res["items"]}
+    assert by_key["primer_entrenamiento"]["unlocked"] is True
+    assert res["summary"]["unlocked"] >= 1
+
+
+def test_goal_progress_peso(db_session, make_gym, make_member):
+    from datetime import timedelta
+
+    from app.models import MemberGoal, MemberWeightRecord
+    from app.services.goals import goal_progress
+
+    gym, _ = make_gym()
+    member = make_member(gym)
+    db_session.add_all(
+        [
+            MemberWeightRecord(
+                gym_id=gym.id,
+                member_id=member.id,
+                weight_kg=90.0,
+                recorded_at=datetime.now(UTC) - timedelta(days=30),
+            ),
+            MemberWeightRecord(
+                gym_id=gym.id,
+                member_id=member.id,
+                weight_kg=82.0,
+                recorded_at=datetime.now(UTC),
+            ),
+        ]
+    )
+    goal = MemberGoal(
+        gym_id=gym.id, member_id=member.id, goal_type="peso", title="Bajar", target_value=78.0
+    )
+    db_session.add(goal)
+    db_session.commit()
+    prog = goal_progress(
+        db_session, str(gym.id), str(member.id), {"goal_type": "peso", "target_value": 78.0}
+    )
+    assert prog["current"] == 82.0
+    assert 0 < prog["progress"] < 1
+
+
+def test_pass_generate_and_redeem(db_session, make_gym, make_member, make_plan, make_membership):
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import Lead, MemberPass
+
+    gym, _ = make_gym()
+    member = make_member(gym)
+    member.share_token = "tok-pass"
+    member.share_expires_at = datetime.now(UTC) + timedelta(days=30)
+    plan = make_plan(gym)
+    plan.pass_quantity = 1
+    plan.pass_period = "month"
+    plan.pass_requires_guest = True
+    make_membership(gym, member, plan)
+    db_session.commit()
+
+    from app.api.member_portal import generate_pass
+
+    res = generate_pass(
+        {"guest_name": "Juan Invitado", "guest_phone": "5511112222"},
+        "tok-pass",
+        db_session,
+    )
+    assert res["token"]
+    pase = db_session.get(MemberPass, res["id"])
+    assert pase.status == "generated"
+    assert pase.expires_at > datetime.now(UTC)
+
+    pase.status = "redeemed"
+    pase.redeemed_at = datetime.now(UTC)
+    lead = Lead(
+        gym_id=gym.id, full_name="Juan Invitado", phone="5511112222", source="pase de invitado"
+    )
+    db_session.add(lead)
+    db_session.flush()
+    pase.redeemed_lead_id = lead.id
+    db_session.commit()
+    assert lead.source == "pase de invitado"

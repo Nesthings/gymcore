@@ -35,9 +35,15 @@ def _resolve_member(db: Session, token: str) -> Member:
 
 def _public_profile(db: Session, member: Member) -> dict:
     gid = str(member.gym_id)
-    gym = db.execute(
-        text("SELECT name, logo_url FROM gyms WHERE id = :gid"), {"gid": gid}
-    ).mappings().first()
+    gym = (
+        db.execute(
+            text("SELECT name, logo_url, streak_grace_days FROM gyms WHERE id = :gid"),
+            {"gid": gid},
+        )
+        .mappings()
+        .first()
+    )
+    grace = gym["streak_grace_days"] if gym else 0
     membership = (
         db.execute(
             text(
@@ -52,11 +58,12 @@ def _public_profile(db: Session, member: Member) -> dict:
         .mappings()
         .first()
     )
-    eng = engagement(db, gid, str(member.id))
+    eng = engagement(db, gid, str(member.id), grace_days=grace)
     return {
         "gym": {
             "name": gym["name"] if gym else "Gimnasio",
             "logo_url": gym["logo_url"] if gym else None,
+            "streak_grace_days": grace,
         },
         "member": {
             "id": str(member.id),

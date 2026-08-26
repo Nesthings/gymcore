@@ -30,6 +30,7 @@ def dashboard_summary(
 
     return gym_summary_data(db, str(ctx.gym["id"]))
 
+
 PERIODS = ("day", "week", "month")
 
 

@@ -12,6 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentGym, get_current_gym, require_component
+from app.api.member_portal import GOAL_TYPES_VALID
 from app.core.events import record_audit
 from app.db.session import get_db
 from app.models import Member, MemberWeightRecord
@@ -313,7 +314,124 @@ def member_engagement(
     db: Session = Depends(get_db),
 ) -> dict:
     _get_member_or_404(db, ctx.gym["id"], member_id)
-    return engagement(db, str(ctx.gym["id"]), member_id)
+    grace = (
+        db.execute(
+            text("SELECT streak_grace_days FROM gyms WHERE id = :gid"),
+            {"gid": str(ctx.gym["id"])},
+        ).scalar()
+        or 0
+    )
+    return engagement(db, str(ctx.gym["id"]), member_id, grace_days=grace)
+
+
+@router.get("/{member_id}/achievements", summary="Logros del socio (staff)")
+def member_achievements_staff(
+    member_id: str,
+    ctx: CurrentGym = Depends(get_current_gym),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.services.achievements import achievements_for
+
+    _get_member_or_404(db, ctx.gym["id"], member_id)
+    return achievements_for(db, str(ctx.gym["id"]), member_id)
+
+
+@router.get("/{member_id}/goals", summary="Objetivos del socio (staff)")
+def member_goals_staff(
+    member_id: str,
+    ctx: CurrentGym = Depends(get_current_gym),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    from app.api.member_portal import _goal_to_read
+    from app.models import MemberGoal
+
+    _get_member_or_404(db, ctx.gym["id"], member_id)
+    rows = db.scalars(
+        select(MemberGoal)
+        .where(MemberGoal.member_id == member_id, MemberGoal.active.is_(True))
+        .order_by(MemberGoal.created_at.desc())
+    )
+    return [_goal_to_read(db, str(ctx.gym["id"]), g) for g in rows]
+
+
+@router.post(
+    "/{member_id}/goals", status_code=status.HTTP_201_CREATED, summary="Crea objetivo (staff)"
+)
+def member_goals_create_staff(
+    member_id: str,
+    body: dict,
+    ctx: CurrentGym = Depends(require_component("socios")),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.api.member_portal import _goal_to_read
+    from app.models import MemberGoal
+
+    _get_member_or_404(db, ctx.gym["id"], member_id)
+    goal_type = body.get("goal_type")
+    if goal_type not in GOAL_TYPES_VALID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de objetivo inválido"
+        )
+    try:
+        target = float(body.get("target_value"))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="target_value inválido"
+        ) from None
+    goal = MemberGoal(
+        gym_id=ctx.gym["id"],
+        member_id=member_id,
+        goal_type=goal_type,
+        title=body.get("title"),
+        target_value=target,
+        start_date=datetime.now(UTC).date(),
+        end_date=body.get("end_date"),
+        active=True,
+    )
+    db.add(goal)
+    db.commit()
+    db.refresh(goal)
+    return _goal_to_read(db, str(ctx.gym["id"]), goal)
+
+
+@router.get("/{member_id}/calendar", summary="Días entrenados por mes (staff)")
+def member_calendar_staff(
+    member_id: str,
+    ctx: CurrentGym = Depends(get_current_gym),
+    db: Session = Depends(get_db),
+    month: int | None = Query(default=None, ge=1, le=12),
+    year: int | None = Query(default=None, ge=2000, le=2100),
+) -> dict:
+    _get_member_or_404(db, ctx.gym["id"], member_id)
+    now = datetime.now(UTC)
+    y = year or now.year
+    m = month or now.month
+    rows = (
+        db.execute(
+            text(
+                "SELECT checked_at::date AS d, checked_at, checked_out_at, duration_min "
+                "FROM checkins WHERE member_id = :mid "
+                "AND EXTRACT(YEAR FROM checked_at) = :y AND EXTRACT(MONTH FROM checked_at) = :m "
+                "ORDER BY checked_at ASC"
+            ),
+            {"mid": member_id, "y": y, "m": m},
+        )
+        .mappings()
+        .all()
+    )
+    days: dict[str, dict] = {}
+    for r in rows:
+        key = str(r["d"])
+        if key not in days:
+            days[key] = {"date": key, "entries": []}
+        days[key]["entries"].append(
+            {
+                "checked_at": r["checked_at"],
+                "checked_out_at": r["checked_out_at"],
+                "duration_min": r["duration_min"],
+            }
+        )
+    return {"year": y, "month": m, "days": sorted(days.values(), key=lambda d: d["date"])}
 
 
 @router.post("/{member_id}/weights", status_code=status.HTTP_201_CREATED)

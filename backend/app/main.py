@@ -18,11 +18,14 @@ from app.api import (
     gyms,
     health,
     leads,
+    member_portal,
     member_share,
     members,
     memberships,
     notifications,
+    passes,
     payments,
+    posts,
     risk,
     suggestions,
     users,
@@ -89,6 +92,9 @@ app.include_router(payments.router, prefix="/api/v1")
 app.include_router(checkin.router, prefix="/api/v1")
 app.include_router(leads.router, prefix="/api/v1")
 app.include_router(member_share.router, prefix="/api/v1")
+app.include_router(member_portal.router, prefix="/api/v1")
+app.include_router(posts.router, prefix="/api/v1")
+app.include_router(passes.router, prefix="/api/v1")
 app.include_router(risk.router, prefix="/api/v1")
 app.include_router(suggestions.router, prefix="/api/v1")
 app.include_router(dashboards.router, prefix="/api/v1")

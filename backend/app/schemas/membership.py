@@ -11,6 +11,16 @@ class MembershipPlanCreate(BaseModel):
     duration_days: int = Field(gt=0, le=3660)
     checkins_limit: int | None = Field(default=None, gt=0)
     is_active: bool = True
+    # Política de pases
+    pass_quantity: int = Field(default=0, ge=0)
+    pass_period: str | None = Field(default=None, pattern="^(week|month)$")
+    pass_type: str | None = Field(default=None, pattern="^(invitado|dia|clase)$")
+    pass_duration_days: int | None = Field(default=None, ge=1, le=30)
+    pass_requires_guest: bool = False
+    pass_ask_phone: bool = False
+    pass_ask_email: bool = False
+    pass_max_accumulate: int | None = Field(default=None, ge=1)
+    pass_expiry_minutes: int = Field(default=30, ge=5, le=10080)
 
 
 class MembershipPlanUpdate(BaseModel):
@@ -20,6 +30,15 @@ class MembershipPlanUpdate(BaseModel):
     duration_days: int | None = Field(default=None, gt=0, le=3660)
     checkins_limit: int | None = Field(default=None, gt=0)
     is_active: bool | None = None
+    pass_quantity: int | None = Field(default=None, ge=0)
+    pass_period: str | None = Field(default=None, pattern="^(week|month)$")
+    pass_type: str | None = Field(default=None, pattern="^(invitado|dia|clase)$")
+    pass_duration_days: int | None = Field(default=None, ge=1, le=30)
+    pass_requires_guest: bool | None = None
+    pass_ask_phone: bool | None = None
+    pass_ask_email: bool | None = None
+    pass_max_accumulate: int | None = Field(default=None, ge=1)
+    pass_expiry_minutes: int | None = Field(default=None, ge=5, le=10080)
 
 
 class MembershipPlanRead(BaseModel):
@@ -33,6 +52,15 @@ class MembershipPlanRead(BaseModel):
     duration_days: int
     checkins_limit: int | None = None
     is_active: bool
+    pass_quantity: int = 0
+    pass_period: str | None = None
+    pass_type: str | None = None
+    pass_duration_days: int | None = None
+    pass_requires_guest: bool = False
+    pass_ask_phone: bool = False
+    pass_ask_email: bool = False
+    pass_max_accumulate: int | None = None
+    pass_expiry_minutes: int = 30
 
 
 class AssignMembershipRequest(BaseModel):

@@ -15,6 +15,7 @@ class GymUpdate(BaseModel):
     whatsapp_phone_number: str | None = Field(default=None, max_length=30)
     whatsapp_enabled: bool | None = None
     setup_completed: bool | None = None
+    streak_grace_days: int | None = Field(default=None, ge=0, le=7)
 
 
 class GymRead(BaseModel):

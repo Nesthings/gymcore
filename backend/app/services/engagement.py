@@ -14,50 +14,63 @@ from sqlalchemy.orm import Session
 
 
 def _distinct_days(db: Session, member_id: str) -> list[date]:
-    rows = db.execute(
-        text(
-            "SELECT DISTINCT checked_at::date AS d FROM checkins "
-            "WHERE member_id = :mid ORDER BY d"
-        ),
-        {"mid": member_id},
-    ).mappings().all()
+    rows = (
+        db.execute(
+            text(
+                "SELECT DISTINCT checked_at::date AS d FROM checkins "
+                "WHERE member_id = :mid ORDER BY d"
+            ),
+            {"mid": member_id},
+        )
+        .mappings()
+        .all()
+    )
     return [r["d"] for r in rows]
 
 
-def compute_streaks(days: list[date], today: date | None = None) -> tuple[int, int]:
+def compute_streaks(
+    days: list[date],
+    today: date | None = None,
+    grace_days: int = 0,
+) -> tuple[int, int]:
     """Devuelve (racha_actual, mejor_racha) en días.
 
-    `today` debe venir de la misma fuente de tiempo que los check-ins (la BD);
-    si no se pasa, usa la fecha local del proceso (para tests).
+    `grace_days`: N días de descanso consecutivos no rompen la racha
+    (protección de racha configurable por el gimnasio).
+    `today` debe venir de la misma fuente de tiempo que los check-ins (la BD).
     """
     if not days:
         return 0, 0
+    days = sorted(set(days))
     day_set = set(days)
     today = today or date.today()
     anchor = today if today in day_set else today - timedelta(days=1)
     current = 0
+    missed = 0
     d = anchor
-    while d in day_set:
-        current += 1
+    while d in day_set or missed <= grace_days:
+        if d in day_set:
+            current += 1
+            missed = 0
+        else:
+            missed += 1
         d -= timedelta(days=1)
 
     best = 0
-    run = 0
-    prev = None
+    run_days: list[date] = []
     for d in days:
-        if prev is not None and (d - prev).days == 1:
-            run += 1
+        if run_days and (d - run_days[-1]).days <= grace_days + 1:
+            run_days.append(d)
         else:
-            run = 1
-        best = max(best, run)
-        prev = d
+            run_days = [d]
+        best = max(best, len(run_days))
     return current, best
 
 
-def engagement(db: Session, gym_id: str, member_id: str) -> dict:
+def engagement(db: Session, gym_id: str, member_id: str, grace_days: int = 0) -> dict:
     days = _distinct_days(db, member_id)
     db_today = db.execute(text("SELECT current_date")).scalar()
-    current_streak, best_streak = compute_streaks(days, today=db_today)
+    current_streak, best_streak = compute_streaks(days, today=db_today, grace_days=grace_days)
 
     total = db.execute(
         text("SELECT COUNT(*) FROM checkins WHERE member_id = :mid"),
@@ -85,13 +98,17 @@ def engagement(db: Session, gym_id: str, member_id: str) -> dict:
         {"mid": member_id},
     ).scalar()
 
-    weights = db.execute(
-        text(
-            "SELECT id, weight_kg, notes, recorded_at FROM member_weight_records "
-            "WHERE member_id = :mid ORDER BY recorded_at ASC"
-        ),
-        {"mid": member_id},
-    ).mappings().all()
+    weights = (
+        db.execute(
+            text(
+                "SELECT id, weight_kg, notes, recorded_at FROM member_weight_records "
+                "WHERE member_id = :mid ORDER BY recorded_at ASC"
+            ),
+            {"mid": member_id},
+        )
+        .mappings()
+        .all()
+    )
     weight_records = [
         {
             "id": str(w["id"]),
@@ -102,13 +119,17 @@ def engagement(db: Session, gym_id: str, member_id: str) -> dict:
         for w in weights
     ]
 
-    last_checkins = db.execute(
-        text(
-            "SELECT checked_at, checked_out_at, duration_min FROM checkins "
-            "WHERE member_id = :mid ORDER BY checked_at DESC LIMIT 30"
-        ),
-        {"mid": member_id},
-    ).mappings().all()
+    last_checkins = (
+        db.execute(
+            text(
+                "SELECT checked_at, checked_out_at, duration_min FROM checkins "
+                "WHERE member_id = :mid ORDER BY checked_at DESC LIMIT 30"
+            ),
+            {"mid": member_id},
+        )
+        .mappings()
+        .all()
+    )
 
     return {
         "checkin_count": total or 0,

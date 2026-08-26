@@ -24,6 +24,27 @@ class MembershipPlan(GymScopedMixin, UUIDPkMixin, Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
+
+    # Política de pases del plan (0 = sin pases)
+    pass_quantity: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    pass_period: Mapped[str | None] = mapped_column(String(10))  # week | month
+    pass_type: Mapped[str | None] = mapped_column(String(20))  # invitado | dia | clase
+    pass_duration_days: Mapped[int | None] = mapped_column(Integer)  # 1 | 3
+    pass_requires_guest: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    pass_ask_phone: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    pass_ask_email: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    pass_max_accumulate: Mapped[int | None] = mapped_column(Integer)
+    pass_expiry_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=30, server_default="30"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

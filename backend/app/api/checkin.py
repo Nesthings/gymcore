@@ -160,10 +160,7 @@ def checkout(
     else:
         duration_min = max(1, int((now - row["checked_at"]).total_seconds() // 60))
     db.execute(
-        text(
-            "UPDATE checkins SET checked_out_at = :out, duration_min = :dur "
-            "WHERE id = :cid"
-        ),
+        text("UPDATE checkins SET checked_out_at = :out, duration_min = :dur WHERE id = :cid"),
         {"out": now, "dur": duration_min, "cid": checkin_id},
     )
     db.commit()
