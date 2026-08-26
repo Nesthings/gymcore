@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Env / secrets
+.env
+
+# Media local
+backend/media/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Infra (Terraform local)
+*.tfstate
+*.tfstate.*
+.terraform/

@@ -1,0 +1,153 @@
+# ============================================================================
+# Workflow: CI/CD del Frontend → Netlify
+# ----------------------------------------------------------------------------
+# Se dispara SOLO cuando cambian archivos del frontend ('frontend/**') o el
+# propio workflow. Dos contextos:
+#   - push a 'main'            → QA + build + DEPLOY DE PRODUCCIÓN (--prod)
+#   - pull_request a 'main'    → QA + build + PREVIEW/DRAFT DEPLOY + comentario
+#                                en la PR con la URL temporal.
+# ============================================================================
+
+name: Deploy Frontend a Netlify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+# Cancelar ejecuciones anteriores de la misma rama/PR si llega un commit nuevo:
+# evita gastar minutos de GitHub Actions y desplegar builds obsoletos.
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # -------------------------------------------------------------------------
+  # JOB 1: quality-and-tests — Control de calidad y pruebas.
+  # -------------------------------------------------------------------------
+  quality-and-tests:
+    name: Calidad y Pruebas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        # Todas las tareas de este job trabajan dentro del frontend.
+        working-directory: frontend
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20 con caché de dependencias
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias (instalación limpia y reproducible)
+        run: npm ci
+
+      - name: Linter y formato (detiene el pipeline si falla)
+        run: npm run lint
+
+      - name: Verificación de tipos (TypeScript)
+        run: npx tsc -b
+
+      - name: Pruebas unitarias / integración
+        # `--if-present`: si aún no existe un script "test", no falla; cuando se
+        # agregue la suite, correrá automáticamente aquí.
+        run: npm run test --if-present
+
+  # -------------------------------------------------------------------------
+  # JOB 2: build-and-deploy — Compilación y despliegue a Netlify.
+  #   Solo se ejecuta si el Job 1 terminó con éxito (needs).
+  # -------------------------------------------------------------------------
+  build-and-deploy:
+    name: Compilar y Desplegar a Netlify
+    runs-on: ubuntu-latest
+    needs: quality-and-tests
+    permissions:
+      contents: read          # para el checkout
+      pull-requests: write    # para comentar la URL del preview en la PR
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20 con caché de dependencias
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias (instalación limpia y reproducible)
+        run: npm ci
+
+      - name: Compilar para producción
+        run: npm run build
+
+      - name: Desplegar en Netlify
+        id: netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          # 1 = pull_request (preview), 0 = push a main (producción)
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "$IS_PR" = "true" ]; then
+            MESSAGE="Preview PR #${PR_NUMBER}"
+            DEPLOY_FLAGS=""
+          else
+            MESSAGE="Producción ${SHA}"
+            DEPLOY_FLAGS="--prod"
+          fi
+
+          # netlify-cli deploy con salida JSON; el resultado se guarda para
+          # parsear la URL del deploy (preview o producción).
+          npx --yes netlify-cli deploy \
+            --dir=dist \
+            --site="$NETLIFY_SITE_ID" \
+            --auth="$NETLIFY_AUTH_TOKEN" \
+            --json \
+            --message "$MESSAGE" \
+            $DEPLOY_FLAGS > ../netlify-deploy.json
+
+          # Guardar la URL pública del deploy como output del paso para usarla
+          # en el comentario de la Pull Request.
+          echo "deploy_url=$(jq -r '.deploy_url' ../netlify-deploy.json)" >> "$GITHUB_OUTPUT"
+
+      # ---------------------------------------------------------------------
+      # Feedback en Pull Requests: comenta la URL del preview generado.
+      # Se ejecuta únicamente cuando el evento es un pull_request.
+      # ---------------------------------------------------------------------
+      - name: Comentar URL del preview en la Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.netlify.outputs.deploy_url }}';
+            const body = `🚀 **Preview desplegado en Netlify**
+
+            Puedes validar la interfaz antes del merge en:
+
+            ${previewUrl}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            })
