@@ -381,7 +381,7 @@ export function MemberPortal() {
             className={cn(
               'rounded-2xl',
               membership.status === 'active'
-                ? 'bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 p-[2px] shadow-[0_10px_30px_-12px_rgba(217,163,6,0.55)]'
+                ? 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-400 p-[2px] shadow-[0_10px_30px_-12px_rgba(250,204,21,0.55)]'
                 : 'border border-border bg-card p-4',
             )}
           >
@@ -397,13 +397,13 @@ export function MemberPortal() {
                     className="pointer-events-none absolute inset-0"
                     style={{
                       background:
-                        'radial-gradient(120% 120% at 100% 0%, rgba(251,191,36,0.16), transparent 60%)',
+                        'radial-gradient(120% 120% at 100% 0%, rgba(250,204,21,0.18), transparent 60%)',
                     }}
                     aria-hidden="true"
                   />
                   <span
                     className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full opacity-60 blur-2xl"
-                    style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.35), transparent 70%)' }}
+                    style={{ background: 'radial-gradient(circle, rgba(250,204,21,0.4), transparent 70%)' }}
                     aria-hidden="true"
                   />
                 </>
@@ -413,16 +413,22 @@ export function MemberPortal() {
                   <p
                     className={cn(
                       'text-xs uppercase tracking-wide',
-                      membership.status === 'active' ? 'text-amber-600 dark:text-amber-300' : 'text-muted-foreground',
+                      membership.status === 'active'
+                        ? 'font-semibold text-yellow-600 dark:text-yellow-300'
+                        : 'text-muted-foreground',
                     )}
                   >
                     Membresía
                   </p>
                   <p className="text-lg font-semibold">{membership.plan_name}</p>
                 </div>
-                <Badge variant={membership.status === 'active' ? 'warning' : mBadge.variant}>
-                  {membership.status === 'active' ? '★ Activa' : mBadge.label}
-                </Badge>
+                {membership.status === 'active' ? (
+                  <Badge className="border-transparent bg-gradient-to-r from-yellow-200 via-yellow-300 to-amber-400 text-yellow-950">
+                    ★ Activa
+                  </Badge>
+                ) : (
+                  <Badge variant={mBadge.variant}>{mBadge.label}</Badge>
+                )}
               </div>
               <div className="relative mt-3 flex items-center justify-between gap-2 text-sm">
                 <span className="text-muted-foreground">Vence el</span>
