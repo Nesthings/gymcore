@@ -345,7 +345,9 @@ def platform_reset_staff_password(user_id: str, body: dict, db: Session = Depend
     try:
         uid = uuid.UUID(user_id)
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inválido") from None
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inválido"
+        ) from None
     user = db.get(User, uid)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
