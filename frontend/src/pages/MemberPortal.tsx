@@ -28,6 +28,11 @@ import {
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { AchievementsGrid, type Achievement } from '@/components/portal/AchievementsGrid'
+import { CalendarView, type CalendarDay } from '@/components/portal/CalendarView'
+import { FeedList } from '@/components/portal/FeedList'
+import { GoalsCard } from '@/components/portal/GoalsCard'
+import { PassesSection } from '@/components/portal/PassesSection'
 import {
   Dialog,
   DialogContent,
@@ -46,7 +51,7 @@ import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface PortalData {
-  gym: { name: string; logo_url?: string | null }
+  gym: { name: string; logo_url?: string | null; streak_grace_days?: number }
   member: {
     id: string
     full_name: string
@@ -130,6 +135,12 @@ export function MemberPortal() {
   const [sugOpen, setSugOpen] = useState(false)
   const [sugText, setSugText] = useState('')
   const [sendingSug, setSendingSug] = useState(false)
+  const [achievements, setAchievements] = useState<{
+    summary: { unlocked: number; locked: number; total: number }
+    items: Achievement[]
+  } | null>(null)
+  const [calendar, setCalendar] = useState<{ year: number; month: number; days: CalendarDay[] } | null>(null)
+  const [feed, setFeed] = useState<{ id: string; title: string; message: string; created_at: string }[] | null>(null)
   const { toast } = useToast()
 
   const load = useCallback(async () => {
@@ -152,6 +163,25 @@ export function MemberPortal() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    const q = (path: string) => apiFetch(path).then((r) => (cancelled ? null : r))
+    Promise.all([
+      q(`/member-share/achievements?token=${encodeURIComponent(token)}`),
+      q(`/member-share/calendar?token=${encodeURIComponent(token)}`),
+      q(`/member-share/feed?token=${encodeURIComponent(token)}`),
+    ]).then(([a, c, f]) => {
+      if (cancelled) return
+      if (a) setAchievements(a as typeof achievements)
+      if (c) setCalendar(c as typeof calendar)
+      if (f) setFeed(f as typeof feed)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   const qrValue = useMemo(
     () => (data ? `gymcore:member:${data.member.id}` : null),
@@ -458,6 +488,28 @@ export function MemberPortal() {
           <StatCard icon={Clock3} label="Tiempo entrenado" value={fmtMin(data.stats.total_training_min)} />
         </div>
 
+        {/* Racha inteligente: motivación + protección */}
+        {data.stats.current_streak > 0 && (
+          <p className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+            {data.stats.current_streak >= data.stats.best_streak ? (
+              <>
+                🔥 <span className="font-semibold">{data.stats.current_streak} días</span> — ¡es tu
+                mejor racha! Mantén el ritmo.
+              </>
+            ) : (
+              <>
+                🔥 <span className="font-semibold">{data.stats.current_streak} días</span> — ¡estás a{' '}
+                {data.stats.best_streak - data.stats.current_streak} día
+                {data.stats.best_streak - data.stats.current_streak === 1 ? '' : 's'} de tu récord (
+                {data.stats.best_streak})!{' '}
+                {(data.gym.streak_grace_days ?? 0) > 0
+                  ? `Con protección de racha: ${data.gym.streak_grace_days} día de descanso no la rompe.`
+                  : 'Tienes que volver mañana para superarlo.'}
+              </>
+            )}
+          </p>
+        )}
+
         {/* Peso: gráfica en tiempo real */}
         <section className="rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -535,6 +587,27 @@ export function MemberPortal() {
             </Button>
           </form>
         </section>
+
+        {/* Calendario personal */}
+        <CalendarView data={calendar} />
+
+        {/* Logros */}
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <AchievementsGrid data={achievements} />
+        </section>
+
+        {/* Objetivos */}
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <GoalsCard token={token} />
+        </section>
+
+        {/* Mis pases */}
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <PassesSection token={token} />
+        </section>
+
+        {/* Feed del gimnasio */}
+        <FeedList items={feed} />
 
         {/* Últimas visitas */}
         <section className="rounded-2xl border border-border bg-card p-4">

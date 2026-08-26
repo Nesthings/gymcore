@@ -9,6 +9,7 @@ import { PermissionsProvider } from '@/lib/permissions'
 import { SetupProvider } from '@/lib/setup'
 import { CreateGym } from '@/pages/auth/CreateGym'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
+import { GuestPass } from '@/pages/GuestPass'
 import { Login } from '@/pages/auth/Login'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
 import { Audit } from '@/pages/Audit'
@@ -44,6 +45,7 @@ function App() {
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/design-system" element={<DesignSystem />} />
                     <Route path="/m" element={<MemberPortal />} />
+                    <Route path="/g" element={<GuestPass />} />
 
                     <Route
                       path="/platform"
