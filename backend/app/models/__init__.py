@@ -10,6 +10,7 @@ from app.models.notification import InternalNotification, OutboundNotification
 from app.models.payment import Payment
 from app.models.smart_alert import SmartAlert, SmartAlertRule
 from app.models.staff import STAFF_ROLES, User, UserComponentPermission
+from app.models.weight import MemberWeightRecord
 
 __all__ = [
     "AuditLog",
@@ -23,6 +24,7 @@ __all__ = [
     "Lead",
     "Member",
     "MemberMembership",
+    "MemberWeightRecord",
     "MembershipPlan",
     "OutboundNotification",
     "Payment",

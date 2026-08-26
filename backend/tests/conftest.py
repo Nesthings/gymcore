@@ -27,8 +27,9 @@ def _database():
             conn.execute(text(f'CREATE DATABASE "{TEST_DB}"'))
     admin.dispose()
 
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", TEST_URL)
@@ -116,7 +117,7 @@ def make_plan(db_session):
 
 @pytest.fixture
 def make_membership(db_session):
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
 
     from app.models import MemberMembership
 

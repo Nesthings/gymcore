@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy import DateTime, ForeignKey, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,5 +27,8 @@ class Checkin(GymScopedMixin, UUIDPkMixin, Base):
     checked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # Check-out opcional: mide el tiempo de entrenamiento en minutos
+    checked_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_min: Mapped[int | None] = mapped_column(Integer)
 
     member: Mapped["Member"] = relationship(back_populates="checkins")  # noqa: F821

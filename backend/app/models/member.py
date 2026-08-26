@@ -26,6 +26,9 @@ class Member(GymScopedMixin, UUIDPkMixin, Base):
         String(20), nullable=False, default="active", server_default="active"
     )
     notes: Mapped[str | None] = mapped_column(Text)
+    # Acceso al portal público del socio (token rotable, 60 días)
+    share_token: Mapped[str | None] = mapped_column(String(128), unique=True, index=True)
+    share_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

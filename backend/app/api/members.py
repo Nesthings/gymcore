@@ -3,7 +3,9 @@
 Alta, edición, baja y detalle con membresías, pagos, check-ins y riesgo.
 """
 
+import secrets
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, text
@@ -12,8 +14,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentGym, get_current_gym, require_component
 from app.core.events import record_audit
 from app.db.session import get_db
-from app.models import Member
+from app.models import Member, MemberWeightRecord
 from app.schemas.member import MemberCreate, MemberDetail, MemberRead, MemberUpdate
+from app.services.engagement import engagement
 from app.services.risk_engine import member_risk
 
 router = APIRouter(prefix="/members", tags=["members"])
@@ -244,3 +247,110 @@ def deactivate_member(
         entity_id=member.id,
     )
     db.commit()
+
+
+# --------------------------------------------------------------------------
+# Portal del socio: invitación (link con QR) y engagement
+# --------------------------------------------------------------------------
+
+SHARE_TOKEN_DAYS = 60
+
+
+def _issue_share_token(member: Member) -> None:
+    member.share_token = secrets.token_urlsafe(32)
+    member.share_expires_at = datetime.now(UTC) + timedelta(days=SHARE_TOKEN_DAYS)
+
+
+@router.post("/{member_id}/share", summary="Genera/rota el link de invitación del socio (60 días)")
+def share_member(
+    member_id: str,
+    ctx: CurrentGym = Depends(require_component("socios")),
+    db: Session = Depends(get_db),
+) -> dict:
+    member = _get_member_or_404(db, ctx.gym["id"], member_id)
+    _issue_share_token(member)
+    record_audit(
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="member_share_created",
+        entity_type="member",
+        entity_id=member.id,
+    )
+    db.commit()
+    return {
+        "share_token": member.share_token,
+        "share_url": f"/m?token={member.share_token}",
+        "expires_at": member.share_expires_at,
+        "expires_in_days": SHARE_TOKEN_DAYS,
+    }
+
+
+@router.get("/{member_id}/share", summary="Link de invitación vigente (si existe)")
+def share_member_info(
+    member_id: str,
+    ctx: CurrentGym = Depends(get_current_gym),
+    db: Session = Depends(get_db),
+) -> dict:
+    member = _get_member_or_404(db, ctx.gym["id"], member_id)
+    if not member.share_token or (
+        member.share_expires_at and member.share_expires_at < datetime.now(UTC)
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin invitación vigente")
+    return {
+        "share_token": member.share_token,
+        "share_url": f"/m?token={member.share_token}",
+        "expires_at": member.share_expires_at,
+        "expires_in_days": SHARE_TOKEN_DAYS,
+    }
+
+
+@router.get("/{member_id}/engagement", summary="Rachas, visitas y progreso del socio")
+def member_engagement(
+    member_id: str,
+    ctx: CurrentGym = Depends(get_current_gym),
+    db: Session = Depends(get_db),
+) -> dict:
+    _get_member_or_404(db, ctx.gym["id"], member_id)
+    return engagement(db, str(ctx.gym["id"]), member_id)
+
+
+@router.post("/{member_id}/weights", status_code=status.HTTP_201_CREATED)
+def add_member_weight(
+    member_id: str,
+    body: dict,
+    ctx: CurrentGym = Depends(require_component("socios")),
+    db: Session = Depends(get_db),
+) -> dict:
+    member = _get_member_or_404(db, ctx.gym["id"], member_id)
+    weight_kg = body.get("weight_kg")
+    if weight_kg is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="weight_kg es requerido"
+        )
+    try:
+        weight_kg = float(weight_kg)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Peso inválido"
+        ) from None
+    if not (20 <= weight_kg <= 400):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Peso fuera de rango")
+    record = MemberWeightRecord(
+        gym_id=ctx.gym["id"],
+        member_id=member.id,
+        weight_kg=weight_kg,
+        notes=body.get("notes"),
+        recorded_at=datetime.now(UTC),
+        created_by=ctx.user.sub,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {
+        "id": str(record.id),
+        "weight_kg": float(record.weight_kg),
+        "notes": record.notes,
+        "recorded_at": record.recorded_at,
+    }

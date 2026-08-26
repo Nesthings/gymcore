@@ -18,6 +18,7 @@ from app.api import (
     gyms,
     health,
     leads,
+    member_share,
     members,
     memberships,
     notifications,
@@ -86,6 +87,7 @@ app.include_router(memberships.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(checkin.router, prefix="/api/v1")
 app.include_router(leads.router, prefix="/api/v1")
+app.include_router(member_share.router, prefix="/api/v1")
 app.include_router(risk.router, prefix="/api/v1")
 app.include_router(dashboards.router, prefix="/api/v1")
 app.include_router(automation.router, prefix="/api/v1")

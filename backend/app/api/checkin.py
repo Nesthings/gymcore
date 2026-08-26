@@ -48,6 +48,24 @@ def checkin(
             status_code=status.HTTP_403_FORBIDDEN, detail="El socio está dado de baja"
         )
 
+    # Si ya tiene una sesión abierta hoy (sin check-out), no duplicamos: la
+    # devolvemos para que el staff pueda cerrarla (tiempo de entrenamiento).
+    open_session = db.execute(
+        text(
+            "SELECT id FROM checkins WHERE member_id = :mid AND gym_id = :gid "
+            "AND checked_out_at IS NULL AND checked_at::date = current_date LIMIT 1"
+        ),
+        {"mid": member.id, "gid": str(ctx.gym["id"])},
+    ).scalar()
+    if open_session:
+        return CheckinResult(
+            ok=True,
+            message=f"{member.full_name} ya está registrado (sesión activa)",
+            member_id=member.id,
+            member_name=member.full_name,
+            plan_active=True,
+        )
+
     # Membresía vigente (descontando cupos si el plan tiene límite)
     mm = db.scalar(
         select(MemberMembership)
@@ -105,6 +123,58 @@ def checkin(
     )
 
 
+@router.post(
+    "/checkins/{checkin_id}/checkout",
+    summary="Registra la salida del socio (cierra la sesión y mide duración)",
+)
+def checkout(
+    checkin_id: str,
+    ctx: CurrentGym = Depends(require_component("checkin")),
+    db: Session = Depends(get_db),
+    body: dict | None = None,
+) -> dict:
+    row = (
+        db.execute(
+            text(
+                "SELECT id, member_id, checked_at, checked_out_at, duration_min "
+                "FROM checkins WHERE id = :cid AND gym_id = :gid"
+            ),
+            {"cid": checkin_id, "gid": str(ctx.gym["id"])},
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Check-in no encontrado")
+    if row["checked_out_at"] is not None:
+        return {
+            "id": str(row["id"]),
+            "checked_out_at": row["checked_out_at"],
+            "duration_min": row["duration_min"],
+            "already_closed": True,
+        }
+    now = datetime.now(UTC)
+    duration_min = None
+    if body and body.get("duration_min"):
+        duration_min = int(body["duration_min"])
+    else:
+        duration_min = max(1, int((now - row["checked_at"]).total_seconds() // 60))
+    db.execute(
+        text(
+            "UPDATE checkins SET checked_out_at = :out, duration_min = :dur "
+            "WHERE id = :cid"
+        ),
+        {"out": now, "dur": duration_min, "cid": checkin_id},
+    )
+    db.commit()
+    return {
+        "id": str(row["id"]),
+        "checked_out_at": now,
+        "duration_min": duration_min,
+        "already_closed": False,
+    }
+
+
 @router.get("/checkins/today", response_model=list[TodayCheckinRead])
 def today_checkins(
     ctx: CurrentGym = Depends(get_current_gym),
@@ -113,7 +183,8 @@ def today_checkins(
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict]:
     sql = (
-        "SELECT c.id, c.member_id, m.full_name AS member_name, b.name AS branch_name, c.checked_at "
+        "SELECT c.id, c.member_id, m.full_name AS member_name, b.name AS branch_name, "
+        "c.checked_at, c.checked_out_at, c.duration_min "
         "FROM checkins c "
         "JOIN members m ON m.id = c.member_id "
         "LEFT JOIN gym_branches b ON b.id = c.branch_id "
