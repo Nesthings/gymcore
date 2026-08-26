@@ -92,6 +92,7 @@ export interface MemberDetailData {
   birth_date?: string | null
   gender?: string | null
   emergency_contact?: string | null
+  emergency_phone?: string | null
   notes?: string | null
   joined_at: string
   memberships: MembershipDetail[]
@@ -312,7 +313,18 @@ export function MemberDetail() {
             <InfoRow
               icon={Users}
               label="Contacto de emergencia"
-              value={member.emergency_contact ?? '—'}
+              value={
+                member.emergency_contact ? (
+                  <>
+                    {member.emergency_contact}
+                    {member.emergency_phone ? (
+                      <span className="ml-1 text-muted-foreground">· {member.emergency_phone}</span>
+                    ) : null}
+                  </>
+                ) : (
+                  '—'
+                )
+              }
             />
           </div>
         </CardContent>
