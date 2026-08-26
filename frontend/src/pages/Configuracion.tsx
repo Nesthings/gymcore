@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Building2,
   Loader2,
+  Megaphone,
   Pencil,
   Plus,
   Save,
@@ -23,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ComunicadosSection } from '@/components/settings/ComunicadosSection'
 import {
   Table,
   TableBody,
@@ -57,6 +59,7 @@ interface GymProfile {
   timezone: string
   currency: string
   logo_url?: string | null
+  streak_grace_days?: number
 }
 
 export function Configuracion() {
@@ -82,6 +85,7 @@ export function Configuracion() {
     fiscal_name: '',
     timezone: 'America/Mexico_City',
     currency: 'MXN',
+    streak_grace_days: 0,
   })
   const [savingGym, setSavingGym] = useState(false)
   const [gymSuccess, setGymSuccess] = useState(false)
@@ -108,6 +112,7 @@ export function Configuracion() {
         fiscal_name: g.fiscal_name ?? '',
         timezone: g.timezone,
         currency: g.currency,
+        streak_grace_days: g.streak_grace_days ?? 0,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cargar la configuración')
@@ -163,6 +168,7 @@ export function Configuracion() {
         fiscal_name: gymForm.fiscal_name || null,
         timezone: gymForm.timezone,
         currency: gymForm.currency,
+        streak_grace_days: Number(gymForm.streak_grace_days) || 0,
       }
       await apiFetch('/gyms/me', { method: 'PATCH', body: JSON.stringify(body) })
       setGymSuccess(true)
@@ -215,6 +221,9 @@ export function Configuracion() {
               </TabsTrigger>
               <TabsTrigger value="gym">
                 <Building2 className="size-4" /> Gimnasio
+              </TabsTrigger>
+              <TabsTrigger value="posts">
+                <Megaphone className="size-4" /> Comunicados
               </TabsTrigger>
             </TabsList>
 
@@ -495,6 +504,21 @@ export function Configuracion() {
                         </select>
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Protección de racha (días)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={7}
+                          value={gymForm.streak_grace_days}
+                          onChange={(e) => setGymField('streak_grace_days', e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          N días de descanso no rompen la racha de los socios (0 = desactivado).
+                        </p>
+                      </div>
+                    </div>
 
                     {gymSuccess && <p className="text-sm text-success">Datos guardados.</p>}
                     <Button type="submit" disabled={savingGym}>
@@ -503,6 +527,9 @@ export function Configuracion() {
                   </form>
                 </CardContent>
               </Card>
+            </TabsContent>
+            <TabsContent value="posts">
+              <ComunicadosSection />
             </TabsContent>
           </Tabs>
         </>

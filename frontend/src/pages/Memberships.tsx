@@ -54,6 +54,11 @@ interface MembershipPlan {
   duration_days: number
   checkins_limit?: number | null
   is_active: boolean
+  pass_quantity?: number
+  pass_period?: string | null
+  pass_type?: string | null
+  pass_requires_guest?: boolean
+  pass_expiry_minutes?: number
 }
 
 interface ActiveMembership {
@@ -110,6 +115,11 @@ function PlanFormDialog({
   const [durationDays, setDurationDays] = useState('')
   const [checkinsLimit, setCheckinsLimit] = useState('')
   const [isActive, setIsActive] = useState(true)
+  const [passQuantity, setPassQuantity] = useState('')
+  const [passPeriod, setPassPeriod] = useState('month')
+  const [passType, setPassType] = useState('invitado')
+  const [passRequiresGuest, setPassRequiresGuest] = useState(false)
+  const [passExpiryMinutes, setPassExpiryMinutes] = useState('30')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
@@ -122,6 +132,11 @@ function PlanFormDialog({
     setDurationDays(plan ? String(plan.duration_days) : '')
     setCheckinsLimit(plan?.checkins_limit != null ? String(plan.checkins_limit) : '')
     setIsActive(plan?.is_active ?? true)
+    setPassQuantity(plan?.pass_quantity ? String(plan.pass_quantity) : '')
+    setPassPeriod(plan?.pass_period ?? 'month')
+    setPassType(plan?.pass_type ?? 'invitado')
+    setPassRequiresGuest(plan?.pass_requires_guest ?? false)
+    setPassExpiryMinutes(plan?.pass_expiry_minutes != null ? String(plan.pass_expiry_minutes) : '30')
     setError(null)
   }, [open, plan])
 
@@ -141,6 +156,11 @@ function PlanFormDialog({
         duration_days: Number(durationDays),
         checkins_limit: checkinsLimit ? Number(checkinsLimit) : null,
         is_active: isActive,
+        pass_quantity: passQuantity ? Number(passQuantity) : 0,
+        pass_period: passQuantity ? passPeriod : null,
+        pass_type: passQuantity ? passType : null,
+        pass_requires_guest: passRequiresGuest,
+        pass_expiry_minutes: passExpiryMinutes ? Number(passExpiryMinutes) : 30,
       })
       if (plan) {
         await apiFetch(`/membership-plans/${plan.id}`, { method: 'PATCH', body })
@@ -219,6 +239,66 @@ function PlanFormDialog({
             />
             Plan activo (visible para asignar)
           </label>
+
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              🎟️ Pases incluidos
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Pases por periodo</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={passQuantity}
+                  onChange={(e) => setPassQuantity(e.target.value)}
+                  placeholder="0 = sin pases"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Periodo</Label>
+                <select
+                  value={passPeriod}
+                  onChange={(e) => setPassPeriod(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                >
+                  <option value="month">Cada mes</option>
+                  <option value="week">Cada semana</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tipo de pase</Label>
+                <select
+                  value={passType}
+                  onChange={(e) => setPassType(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                >
+                  <option value="invitado">Invitado</option>
+                  <option value="dia">Día</option>
+                  <option value="clase">Clase</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Expira (min)</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  value={passExpiryMinutes}
+                  onChange={(e) => setPassExpiryMinutes(e.target.value)}
+                />
+              </div>
+            </div>
+            <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={passRequiresGuest}
+                onChange={(e) => setPassRequiresGuest(e.target.checked)}
+                className="size-4 rounded border-border"
+              />
+              Requiere registrar al invitado (nombre)
+            </label>
+          </div>
+
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

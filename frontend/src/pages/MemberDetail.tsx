@@ -24,6 +24,10 @@ import { MembershipCard } from '@/components/members/MembershipCard'
 import { RiskBadge } from '@/components/members/RiskBadge'
 import { ShareDialog } from '@/components/members/ShareDialog'
 import { WeightChart } from '@/components/members/WeightChart'
+import { AchievementsGrid, type Achievement } from '@/components/portal/AchievementsGrid'
+import { CalendarView, type CalendarDay } from '@/components/portal/CalendarView'
+import { GoalCardStaff } from '@/components/portal/GoalCardStaff'
+import { type Goal } from '@/components/portal/GoalsCard'
 import { RiskScoreRing } from '@/components/risk/RiskScoreRing'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -164,20 +168,35 @@ export function MemberDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [engagement, setEngagement] = useState<EngagementStatsData | null>(null)
+  const [achievements, setAchievements] = useState<{
+    summary: { unlocked: number; locked: number; total: number }
+    items: Achievement[]
+  } | null>(null)
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [calendar, setCalendar] = useState<{ year: number; month: number; days: CalendarDay[] } | null>(null)
   const { toast } = useToast()
 
-  const loadEngagement = useCallback(async () => {
-    if (!id) return
-    try {
-      setEngagement(await apiFetch<EngagementStatsData>(`/members/${id}/engagement`))
-    } catch {
-      // el módulo de progreso es best-effort; no rompe la ficha
-    }
-  }, [id])
-
   useEffect(() => {
-    loadEngagement()
-  }, [loadEngagement, refreshKey])
+    if (!id) return
+    let cancelled = false
+    const q = (p: string) =>
+      apiFetch(p).then((r) => (cancelled ? null : r))
+    Promise.all([
+      q(`/members/${id}/engagement`),
+      q(`/members/${id}/achievements`),
+      q(`/members/${id}/goals`),
+      q(`/members/${id}/calendar`),
+    ]).then(([eng, ach, gls, cal]) => {
+      if (cancelled) return
+      if (eng) setEngagement(eng as EngagementStatsData)
+      if (ach) setAchievements(ach as typeof achievements)
+      if (gls) setGoals(gls as Goal[])
+      if (cal) setCalendar(cal as typeof calendar)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [id, refreshKey])
 
   const load = useCallback(async () => {
     if (!id) return
@@ -458,11 +477,29 @@ export function MemberDetail() {
 
         <TabsContent value="progreso" className="space-y-4">
           <EngagementStats data={engagement} />
-          <WeightChart
-            memberId={member.id}
-            records={engagement?.weight_records ?? []}
-            onChanged={loadEngagement}
-          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <WeightChart
+              memberId={member.id}
+              records={engagement?.weight_records ?? []}
+              onChanged={() => setRefreshKey((k) => k + 1)}
+            />
+            <div className="space-y-4">
+              <AchievementsGrid data={achievements} />
+              {goals.length > 0 && (
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Objetivos
+                  </p>
+                  <div className="space-y-2">
+                    {goals.map((g) => (
+                      <GoalCardStaff key={g.id} goal={g} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <CalendarView data={calendar} />
         </TabsContent>
 
         <TabsContent value="pagos">
