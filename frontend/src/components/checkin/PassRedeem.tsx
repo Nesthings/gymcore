@@ -1,11 +1,52 @@
-import { useState } from 'react'
-import { PartyPopper, Ticket } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import QrScanner from 'qr-scanner'
+import { PartyPopper, ScanLine, Ticket } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
 import { apiFetch } from '@/lib/api'
+
+function extractPassToken(decoded: string): string | null {
+  const value = decoded.trim()
+  if (!value) return null
+  // El QR del pase codifica `gymcore:pass:<token>`
+  if (value.includes(':')) {
+    const last = value.split(':').pop()
+    if (last) return last
+  }
+  try {
+    const url = new URL(value, window.location.origin)
+    const t = url.searchParams.get('token')
+    if (t) return t
+  } catch {
+    // no es URL: puede ser el token crudo
+  }
+  return value
+}
+
+/** Pide el permiso de cámara DENTRO del gesto del usuario (clic). */
+async function requestCameraPermission(): Promise<boolean> {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) return false
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false,
+    })
+    stream.getTracks().forEach((track) => track.stop())
+    return true
+  } catch {
+    return false
+  }
+}
 
 export function PassRedeem() {
   const [token, setToken] = useState('')
@@ -15,42 +56,96 @@ export function PassRedeem() {
     lead_id: string
   } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const scannerRef = useRef<QrScanner | null>(null)
   const { toast } = useToast()
 
-  const redeem = async (e: React.FormEvent) => {
+  const stopScanner = useCallback(() => {
+    scannerRef.current?.stop()
+    scannerRef.current?.destroy()
+    scannerRef.current = null
+  }, [])
+
+  const redeem = useCallback(
+    async (rawToken: string) => {
+      setBusy(true)
+      setResult(null)
+      try {
+        const res = await apiFetch<{
+          guest_name: string
+          inviter_name?: string | null
+          lead_id: string
+        }>('/passes/redeem', { method: 'POST', body: JSON.stringify({ token: rawToken }) })
+        setResult(res)
+        setToken('')
+        toast({
+          title: 'Pase canjeado',
+          description: `${res.guest_name} entró gracias a un pase de invitado.`,
+          variant: 'success',
+        })
+      } catch (err) {
+        toast({
+          title: 'No se pudo canjear',
+          description: err instanceof Error ? err.message : 'Verifica el token.',
+          variant: 'error',
+        })
+      } finally {
+        setBusy(false)
+      }
+    },
+    [toast],
+  )
+
+  const handleForm = (e: React.FormEvent) => {
     e.preventDefault()
     if (!token.trim()) {
       toast({ title: 'Ingresa el token del pase', variant: 'error' })
       return
     }
-    setBusy(true)
-    setResult(null)
-    try {
-      const res = await apiFetch<{ guest_name: string; inviter_name?: string | null; lead_id: string }>(
-        '/passes/redeem',
-        { method: 'POST', body: JSON.stringify({ token: token.trim() }) },
-      )
-      setResult(res)
-      setToken('')
-      toast({
-        title: 'Pase canjeado',
-        description: `${res.guest_name} entró gracias a un pase de invitado.`,
-        variant: 'success',
-      })
-    } catch (err) {
-      toast({
-        title: 'No se pudo canjear',
-        description: err instanceof Error ? err.message : 'Verifica el token.',
-        variant: 'error',
-      })
-    } finally {
-      setBusy(false)
-    }
+    redeem(token.trim())
   }
+
+  const openScanner = async () => {
+    setCameraError(null)
+    const ok = await requestCameraPermission()
+    if (!ok) {
+      setCameraError('No se pudo acceder a la cámara. Revisa los permisos o pega el token.')
+      return
+    }
+    setScannerOpen(true)
+  }
+
+  useEffect(() => {
+    if (!scannerOpen || !videoRef.current) return
+    const scanner = new QrScanner(
+      videoRef.current,
+      (decoded: string) => {
+        const t = extractPassToken(decoded)
+        if (!t) return
+        stopScanner()
+        setScannerOpen(false)
+        redeem(t)
+      },
+      (error) => {
+        console.warn('qr-scan error', error)
+      },
+    )
+    scannerRef.current = scanner
+    scanner.setCamera('environment').catch(() => {})
+    scanner.start().catch(() => {
+      setCameraError('No se pudo iniciar la cámara.')
+      setScannerOpen(false)
+    })
+    return () => {
+      stopScanner()
+    }
+  }, [scannerOpen, stopScanner, redeem])
 
   return (
     <div className="space-y-3">
-      <form onSubmit={redeem} className="flex flex-wrap items-end gap-2">
+      <form onSubmit={handleForm} className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1 space-y-1.5">
           <Label htmlFor="pass-token">Token del pase</Label>
           <Input
@@ -63,6 +158,9 @@ export function PassRedeem() {
         </div>
         <Button type="submit" disabled={busy}>
           <Ticket /> Canjear
+        </Button>
+        <Button type="button" variant="outline" onClick={openScanner}>
+          <ScanLine /> Escanear QR
         </Button>
       </form>
 
@@ -80,6 +178,25 @@ export function PassRedeem() {
           </p>
         </div>
       )}
+
+      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScanLine className="size-5 text-primary" /> Escanear pase
+            </DialogTitle>
+            <DialogDescription>
+              Apunta a la cámara al QR del invitado. Se canjeará automáticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="overflow-hidden rounded-xl border border-border bg-black">
+              <video ref={videoRef} muted playsInline className="aspect-square w-full object-cover" />
+            </div>
+            {cameraError && <p className="text-sm text-destructive">{cameraError}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
