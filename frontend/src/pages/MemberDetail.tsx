@@ -10,15 +10,20 @@ import {
   Pencil,
   Phone,
   Plus,
+  QrCode,
+  Scale,
   Trash2,
   TriangleAlert,
   Users,
 } from 'lucide-react'
 
 import { AssignPlanDialog } from '@/components/members/AssignPlanDialog'
+import { EngagementStats, type EngagementStatsData } from '@/components/members/EngagementStats'
 import { MemberFormDialog } from '@/components/members/MemberFormDialog'
 import { MembershipCard } from '@/components/members/MembershipCard'
 import { RiskBadge } from '@/components/members/RiskBadge'
+import { ShareDialog } from '@/components/members/ShareDialog'
+import { WeightChart } from '@/components/members/WeightChart'
 import { RiskScoreRing } from '@/components/risk/RiskScoreRing'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -154,9 +159,24 @@ export function MemberDetail() {
   const [error, setError] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [engagement, setEngagement] = useState<EngagementStatsData | null>(null)
   const { toast } = useToast()
+
+  const loadEngagement = useCallback(async () => {
+    if (!id) return
+    try {
+      setEngagement(await apiFetch<EngagementStatsData>(`/members/${id}/engagement`))
+    } catch {
+      // el módulo de progreso es best-effort; no rompe la ficha
+    }
+  }, [id])
+
+  useEffect(() => {
+    loadEngagement()
+  }, [loadEngagement, refreshKey])
 
   const load = useCallback(async () => {
     if (!id) return
@@ -259,6 +279,9 @@ export function MemberDetail() {
               <Button size="sm" onClick={() => setAssignOpen(true)}>
                 <Plus /> Asignar plan
               </Button>
+              <Button size="sm" variant="outline" onClick={() => setShareOpen(true)}>
+                <QrCode /> Invitación
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
@@ -299,6 +322,9 @@ export function MemberDetail() {
         <TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 sm:w-auto sm:overflow-visible">
           <TabsTrigger value="resumen">
             <Activity className="size-4" /> Resumen
+          </TabsTrigger>
+          <TabsTrigger value="progreso">
+            <Scale className="size-4" /> Progreso
           </TabsTrigger>
           <TabsTrigger value="pagos">
             <CreditCard className="size-4" /> Pagos
@@ -416,6 +442,15 @@ export function MemberDetail() {
               )}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="progreso" className="space-y-4">
+          <EngagementStats data={engagement} />
+          <WeightChart
+            memberId={member.id}
+            records={engagement?.weight_records ?? []}
+            onChanged={loadEngagement}
+          />
         </TabsContent>
 
         <TabsContent value="pagos">
@@ -553,6 +588,13 @@ export function MemberDetail() {
           setAssignOpen(false)
           setRefreshKey((k) => k + 1)
         }}
+      />
+
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        memberId={member.id}
+        memberName={member.full_name}
       />
 
       <ConfirmDialog

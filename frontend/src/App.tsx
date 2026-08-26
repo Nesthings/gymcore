@@ -18,6 +18,7 @@ import { Crm } from '@/pages/Crm'
 import { Dashboard } from '@/pages/Dashboard'
 import { DesignSystem } from '@/pages/DesignSystem'
 import { MemberDetail } from '@/pages/MemberDetail'
+import { MemberPortal } from '@/pages/MemberPortal'
 import { Members } from '@/pages/Members'
 import { Memberships } from '@/pages/Memberships'
 import { Payments } from '@/pages/Payments'
@@ -41,6 +42,7 @@ function App() {
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/design-system" element={<DesignSystem />} />
+                    <Route path="/m" element={<MemberPortal />} />
 
                     <Route
                       path="/platform"
