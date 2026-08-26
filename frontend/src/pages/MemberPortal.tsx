@@ -122,7 +122,6 @@ export function MemberPortal() {
   const [data, setData] = useState<PortalData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [flipped, setFlipped] = useState(false)
   const [qrModal, setQrModal] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -292,71 +291,32 @@ export function MemberPortal() {
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6">
-        {/* Perfil: la tarjeta de foto se voltea para revelar el QR */}
+        {/* Perfil: un click en la foto abre el QR en grande */}
         <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 text-center">
-          <div
-            className="[perspective:1200px]"
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            className="group relative transition-transform active:scale-95"
             aria-label="Ver mi QR de check-in"
-            onClick={() => {
-              if (!flipped) {
-                setFlipped(true)
-              } else {
-                setFlipped(false)
-                setQrModal(true)
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                if (!flipped) {
-                  setFlipped(true)
-                } else {
-                  setFlipped(false)
-                  setQrModal(true)
-                }
-              }
-            }}
+            onClick={() => setQrModal(true)}
           >
-            <div
-              className={cn(
-                'relative size-40 cursor-pointer transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none [transform-style:preserve-3d]',
-                flipped && '[transform:rotateY(180deg)]',
+            <div className="relative size-40 overflow-hidden rounded-2xl border-4 border-primary/25 shadow-elevated transition-colors group-hover:border-primary/40">
+              {data.member.photo_url ? (
+                <img
+                  src={data.member.photo_url}
+                  alt={data.member.full_name}
+                  className="size-full object-cover"
+                />
+              ) : (
+                <Avatar
+                  name={data.member.full_name}
+                  className="size-full rounded-none border-0 text-4xl"
+                />
               )}
-            >
-              {/* Frente: foto */}
-              <div className="absolute inset-0 overflow-hidden rounded-2xl border-4 border-primary/25 shadow-elevated [backface-visibility:hidden]">
-                {data.member.photo_url ? (
-                  <img
-                    src={data.member.photo_url}
-                    alt={data.member.full_name}
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <Avatar
-                    name={data.member.full_name}
-                    className="size-full rounded-none border-0 text-4xl"
-                  />
-                )}
-              </div>
-              {/* Reverso: QR de check-in */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-white p-3 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                {qr ? (
-                  <img
-                    src={qr}
-                    alt={`QR de check-in de ${data.member.full_name}`}
-                    className="size-32"
-                  />
-                ) : (
-                  <Skeleton className="size-32" />
-                )}
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-600">
-                  QR de check-in
-                </span>
-              </div>
             </div>
-          </div>
+            <span className="absolute -bottom-1 -right-1 flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform group-hover:scale-110">
+              <QrCode className="size-4" aria-hidden="true" />
+            </span>
+          </button>
           <div>
             <h1 className="font-display text-2xl font-semibold tracking-tight">
               {data.member.full_name}
@@ -370,7 +330,7 @@ export function MemberPortal() {
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
-            Toca tu foto para voltearla y ver tu QR de check-in.
+            Toca tu foto para ver tu QR de check-in en grande.
           </p>
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98]">
             <Camera className="size-4" aria-hidden="true" />
