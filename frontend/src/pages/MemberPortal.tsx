@@ -402,13 +402,13 @@ export function MemberPortal() {
                     aria-hidden="true"
                   />
                   <span
-                    className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full opacity-60 blur-2xl"
-                    style={{ background: 'radial-gradient(circle, rgba(250,204,21,0.4), transparent 70%)' }}
+                    className="pointer-events-none absolute -bottom-10 -right-10 z-0 size-28 rounded-full opacity-50 blur-2xl"
+                    style={{ background: 'radial-gradient(circle, rgba(250,204,21,0.35), transparent 70%)' }}
                     aria-hidden="true"
                   />
                 </>
               )}
-              <div className="relative flex items-center justify-between gap-2">
+              <div className="relative z-[1] flex items-center justify-between gap-2">
                 <div>
                   <p
                     className={cn(
