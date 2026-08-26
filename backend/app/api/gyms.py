@@ -342,7 +342,11 @@ def platform_list_users(
     dependencies=[Depends(require_roles("super-admin"))],
 )
 def platform_reset_staff_password(user_id: str, body: dict, db: Session = Depends(get_db)) -> dict:
-    user = db.get(User, uuid.UUID(user_id))
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inválido") from None
+    user = db.get(User, uid)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
     new_password = body.get("new_password")

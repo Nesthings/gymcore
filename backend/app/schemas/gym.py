@@ -14,6 +14,7 @@ class GymUpdate(BaseModel):
     currency: str | None = Field(default=None, max_length=10)
     whatsapp_phone_number: str | None = Field(default=None, max_length=30)
     whatsapp_enabled: bool | None = None
+    setup_completed: bool | None = None
 
 
 class GymRead(BaseModel):
