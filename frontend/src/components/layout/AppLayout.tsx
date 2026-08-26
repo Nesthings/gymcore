@@ -2,6 +2,7 @@ import {
   Dumbbell,
   History,
   Home,
+  Inbox,
   LogOut,
   MapPin,
   PanelLeftClose,
@@ -54,6 +55,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [gymName, setGymName] = useState<string>('')
   const [gymLogoUrl, setGymLogoUrl] = useState<string | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [sugUnread, setSugUnread] = useState(0)
   const [branches, setBranches] = useState<Branch[]>([])
   const [branchId, setBranchId] = useState<string>('')
   const [navDragOver, setNavDragOver] = useState(false)
@@ -75,6 +77,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       // sin almacenamiento
     }
   }, [collapsed])
+
+  // Contador de sugerencias sin leer del buzón (solo admin, en el menú de perfil)
+  useEffect(() => {
+    if (user?.role !== 'admin') return
+    apiFetch<{ count: number }>('/suggestions/unread-count')
+      .then((r) => setSugUnread(r.count))
+      .catch(() => {})
+  }, [user?.role, profileOpen])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -372,6 +382,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       >
                         <Settings2 className="size-4" aria-hidden="true" />
                         Configuración del gimnasio
+                      </NavLink>
+                    )}
+                    {user?.role === 'admin' && (
+                      <NavLink
+                        to="/sugerencias"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Inbox className="size-4" aria-hidden="true" />
+                        <span className="flex-1">Buzón de sugerencias</span>
+                        {sugUnread > 0 && (
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+                            {sugUnread > 9 ? '9+' : sugUnread}
+                          </span>
+                        )}
                       </NavLink>
                     )}
                     {hasComponent('auditoria') && (

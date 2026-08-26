@@ -26,6 +26,7 @@ import { Platform } from '@/pages/Platform'
 import { Profile } from '@/pages/Profile'
 import { Riesgo } from '@/pages/Riesgo'
 import { SetupWizard } from '@/pages/SetupWizard'
+import { Sugerencias } from '@/pages/Sugerencias'
 
 function App() {
   return (
@@ -122,6 +123,14 @@ function App() {
                       element={
                         <ProtectedRoute roles={['admin']} component="configuracion">
                           <Configuracion />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/sugerencias"
+                      element={
+                        <ProtectedRoute roles={['admin']}>
+                          <Sugerencias />
                         </ProtectedRoute>
                       }
                     />

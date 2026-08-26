@@ -8,11 +8,21 @@ import {
   Dumbbell,
   Flame,
   LinkIcon,
-  QrCode,
+  MessageSquare,
   Scale,
+  Send,
   Trophy,
 } from 'lucide-react'
 import QRCode from 'qrcode'
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +39,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/toast'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -71,6 +82,8 @@ const MEMBERSHIP_BADGE: Record<string, { label: string; variant: 'success' | 'wa
   expired: { label: 'Vencida', variant: 'destructive' },
 }
 
+const AXIS_TICK = { fontSize: 11, fill: 'var(--muted-foreground)' }
+
 function fmtMin(min: number) {
   return min >= 60 ? `${Math.round(min / 60)} h` : `${min} min`
 }
@@ -108,11 +121,14 @@ export function MemberPortal() {
   const [data, setData] = useState<PortalData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [qrOpen, setQrOpen] = useState(false)
+  const [flipped, setFlipped] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [kg, setKg] = useState('')
   const [saving, setSaving] = useState(false)
+  const [sugOpen, setSugOpen] = useState(false)
+  const [sugText, setSugText] = useState('')
+  const [sendingSug, setSendingSug] = useState(false)
   const { toast } = useToast()
 
   const load = useCallback(async () => {
@@ -200,6 +216,32 @@ export function MemberPortal() {
     }
   }
 
+  const sendSuggestion = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!sugText.trim()) {
+      toast({ title: 'Escribe tu mensaje', variant: 'error' })
+      return
+    }
+    setSendingSug(true)
+    try {
+      await apiFetch(`/member-suggestions?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        body: JSON.stringify({ message: sugText }),
+      })
+      setSugText('')
+      setSugOpen(false)
+      toast({
+        title: '¡Gracias por tu comentario!',
+        description: 'Llegó directo a la recepción de tu gimnasio.',
+        variant: 'success',
+      })
+    } catch (err) {
+      toast({ title: 'No se pudo enviar', description: err instanceof Error ? err.message : 'Intenta de nuevo.', variant: 'error' })
+    } finally {
+      setSendingSug(false)
+    }
+  }
+
   if (loading) {
     return <LoadingState label="Cargando tu portal…" />
   }
@@ -248,25 +290,61 @@ export function MemberPortal() {
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6">
-        {/* Perfil + foto clicable */}
-        <section className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-5 text-center">
-          <button
-            type="button"
-            onClick={() => setQrOpen(true)}
-            className="group relative rounded-full transition-transform active:scale-95"
-            title="Toca para ver tu QR y cambiar foto"
+        {/* Perfil: la tarjeta de foto se voltea para revelar el QR */}
+        <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 text-center">
+          <div
+            className="[perspective:1200px]"
+            role="button"
+            tabIndex={0}
+            aria-label="Ver mi QR de check-in"
+            onClick={() => setFlipped((f) => !f)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setFlipped((f) => !f)
+              }
+            }}
           >
-            <Avatar
-              src={data.member.photo_url}
-              name={data.member.full_name}
-              className="size-24 border-2 border-primary/30"
-            />
-            <span className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform group-hover:scale-110">
-              <QrCode className="size-4" aria-hidden="true" />
-            </span>
-          </button>
+            <div
+              className={cn(
+                'relative size-40 cursor-pointer transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none [transform-style:preserve-3d]',
+                flipped && '[transform:rotateY(180deg)]',
+              )}
+            >
+              {/* Frente: foto */}
+              <div className="absolute inset-0 overflow-hidden rounded-2xl border-4 border-primary/25 shadow-elevated [backface-visibility:hidden]">
+                {data.member.photo_url ? (
+                  <img
+                    src={data.member.photo_url}
+                    alt={data.member.full_name}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <Avatar
+                    name={data.member.full_name}
+                    className="size-full rounded-none border-0 text-4xl"
+                  />
+                )}
+              </div>
+              {/* Reverso: QR de check-in */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-white p-3 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                {qr ? (
+                  <img
+                    src={qr}
+                    alt={`QR de check-in de ${data.member.full_name}`}
+                    className="size-32"
+                  />
+                ) : (
+                  <Skeleton className="size-32" />
+                )}
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-600">
+                  QR de check-in
+                </span>
+              </div>
+            </div>
+          </div>
           <div>
-            <h1 className="font-display text-xl font-semibold tracking-tight">
+            <h1 className="font-display text-2xl font-semibold tracking-tight">
               {data.member.full_name}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -278,8 +356,23 @@ export function MemberPortal() {
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
-            Toca tu foto para ver tu QR de check-in o actualizar tu imagen.
+            Toca tu foto para voltearla y ver tu QR de check-in.
           </p>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98]">
+            <Camera className="size-4" aria-hidden="true" />
+            {uploading ? 'Subiendo…' : 'Cambiar mi foto'}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) uploadPhoto(f)
+                e.target.value = ''
+              }}
+            />
+          </label>
         </section>
 
         {/* Membresía */}
@@ -321,44 +414,65 @@ export function MemberPortal() {
           <StatCard icon={Clock3} label="Tiempo entrenado" value={fmtMin(data.stats.total_training_min)} />
         </div>
 
-        {/* Peso */}
+        {/* Peso: gráfica en tiempo real */}
         <section className="rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center gap-2">
             <Scale className="size-4 text-primary" aria-hidden="true" />
-            <h2 className="text-sm font-semibold">Mi progreso de peso</h2>
+            <h2 className="text-sm font-semibold">Mi evolución de peso</h2>
+            {weights.length > 0 && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                {weights[weights.length - 1].weight_kg} kg actual
+              </span>
+            )}
           </div>
           {weights.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              Aún no hay mediciones. Registra tu primer peso.
+              Registra tu primer peso y aquí verás tu evolución.
             </p>
           ) : (
-            <ul className="space-y-1.5">
-              {weights
-                .slice()
-                .reverse()
-                .map((w) => (
-                  <li
-                    key={w.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm"
-                  >
-                    <span className="font-mono text-base font-semibold tabular-nums">
-                      {w.weight_kg} kg
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(w.recorded_at).toLocaleDateString('es-MX', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                      {w.notes ? ` · ${w.notes}` : ''}
-                    </span>
-                  </li>
-                ))}
-            </ul>
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                <AreaChart
+                  data={weights.map((w) => ({
+                    label: new Date(w.recorded_at).toLocaleDateString('es-MX', {
+                      day: '2-digit',
+                      month: 'short',
+                    }),
+                    peso: w.weight_kg,
+                  }))}
+                  margin={{ top: 8, right: 8, left: -14, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="portalWeight" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="label" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                  <YAxis
+                    tick={AXIS_TICK}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={['dataMin - 1', 'dataMax + 1']}
+                  />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="peso"
+                    name="Peso (kg)"
+                    stroke="var(--chart-1)"
+                    strokeWidth={2}
+                    fill="url(#portalWeight)"
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           )}
-          <form onSubmit={registerWeight} className="mt-3 flex items-end gap-2">
+          <form onSubmit={registerWeight} className="mt-3 flex flex-wrap items-end gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor="portal-weight">Peso (kg)</Label>
+              <Label htmlFor="portal-weight">Nuevo peso (kg)</Label>
               <Input
                 id="portal-weight"
                 type="number"
@@ -412,47 +526,54 @@ export function MemberPortal() {
           )}
         </section>
 
+        {/* Comentarios / sugerencias para el gimnasio */}
+        <section className="rounded-2xl border border-dashed border-border bg-card/50 p-5 text-center">
+          <MessageSquare className="mx-auto mb-2 size-6 text-primary" aria-hidden="true" />
+          <h2 className="text-sm font-semibold">¿Algún comentario o sugerencia?</h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            Tu opinión llega directo a la recepción del gimnasio. ¿Horarios, clases, instalaciones?
+            Cuéntanos.
+          </p>
+          <Button type="button" size="sm" className="mt-3" onClick={() => setSugOpen(true)}>
+            <MessageSquare /> Enviar comentario
+          </Button>
+        </section>
+
         <p className="pb-4 text-center text-xs text-muted-foreground">
           Hecho con <Dumbbell className="inline size-3" aria-hidden="true" /> {data.gym.name} ·
           enlace personal e intransferible
         </p>
       </main>
 
-      {/* Dialog: QR + cambiar foto */}
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-sm">
+      {/* Dialog: enviar sugerencia */}
+      <Dialog open={sugOpen} onOpenChange={setSugOpen}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <QrCode className="size-5 text-primary" /> Tu QR de check-in
+              <MessageSquare className="size-5 text-primary" /> Comentario para {data.gym.name}
             </DialogTitle>
             <DialogDescription>
-              Muéstralo en recepción para registrar tu entrada. También puedes actualizar tu foto.
+              Tu mensaje llegará a la recepción del gimnasio. No es necesario que des tu nombre.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-4">
-            <div className="rounded-xl border border-border bg-white p-3">
-              {qr ? (
-                <img src={qr} alt={`QR de ${data.member.full_name}`} className="size-52" />
-              ) : (
-                <Skeleton className="size-52" />
-              )}
+          <form onSubmit={sendSuggestion} className="space-y-3">
+            <Textarea
+              value={sugText}
+              onChange={(e) => setSugText(e.target.value)}
+              rows={4}
+              maxLength={2000}
+              placeholder="Escribe aquí tu comentario o sugerencia…"
+              required
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setSugOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" disabled={sendingSug}>
+                <Send /> Enviar
+              </Button>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98]">
-              <Camera className="size-4" aria-hidden="true" />
-              {uploading ? 'Subiendo…' : 'Cambiar mi foto'}
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                disabled={uploading}
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) uploadPhoto(f)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
