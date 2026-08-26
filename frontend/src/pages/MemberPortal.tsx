@@ -9,6 +9,7 @@ import {
   Flame,
   LinkIcon,
   MessageSquare,
+  QrCode,
   Scale,
   Send,
   Trophy,
@@ -122,6 +123,7 @@ export function MemberPortal() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [flipped, setFlipped] = useState(false)
+  const [qrModal, setQrModal] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [kg, setKg] = useState('')
@@ -255,9 +257,46 @@ export function MemberPortal() {
           onRetry={load}
           className="max-w-md"
         />
-      </div>
-    )
-  }
+{/* Dialog: QR en grande (al tocar el reverso de la tarjeta) */}
+      <Dialog open={qrModal} onOpenChange={setQrModal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="size-5 text-primary" /> Tu QR de check-in
+            </DialogTitle>
+            <DialogDescription>
+              Muéstralo en recepción para registrar tu entrada. También puedes actualizar tu foto.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4">
+            <div className="rounded-xl border border-border bg-white p-3 shadow-card">
+              {qr ? (
+                <img src={qr} alt={`QR de ${data.member.full_name}`} className="size-56" />
+              ) : (
+                <Skeleton className="size-56" />
+              )}
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98]">
+              <Camera className="size-4" aria-hidden="true" />
+              {uploading ? 'Subiendo…' : 'Cambiar mi foto'}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                disabled={uploading}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadPhoto(f)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
 
   const membership = data.membership
   const mBadge = MEMBERSHIP_BADGE[membership?.status ?? ''] ?? {
@@ -297,11 +336,23 @@ export function MemberPortal() {
             role="button"
             tabIndex={0}
             aria-label="Ver mi QR de check-in"
-            onClick={() => setFlipped((f) => !f)}
+            onClick={() => {
+              if (!flipped) {
+                setFlipped(true)
+              } else {
+                setFlipped(false)
+                setQrModal(true)
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                setFlipped((f) => !f)
+                if (!flipped) {
+                  setFlipped(true)
+                } else {
+                  setFlipped(false)
+                  setQrModal(true)
+                }
               }
             }}
           >
