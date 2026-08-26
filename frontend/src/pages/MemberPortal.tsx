@@ -292,13 +292,36 @@ export function MemberPortal() {
 
       <main className="mx-auto max-w-lg space-y-4 px-4 py-6">
         {/* Perfil: un click en la foto abre el QR en grande */}
-        <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 text-center">
-          <button
-            type="button"
-            className="group relative transition-transform active:scale-95"
-            aria-label="Ver mi QR de check-in"
-            onClick={() => setQrModal(true)}
+        <section
+          className={cn(
+            'rounded-2xl',
+            membership?.status === 'active'
+              ? 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-500 p-[2px] shadow-[0_10px_30px_-12px_rgba(250,204,21,0.55)]'
+              : 'border border-border bg-card p-6 text-center',
+          )}
+        >
+          <div
+            className={cn(
+              'relative flex flex-col items-center gap-4 overflow-hidden',
+              membership?.status === 'active' ? 'rounded-[14px] bg-card p-6' : undefined,
+            )}
           >
+            {membership?.status === 'active' && (
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(120% 120% at 0% 100%, rgba(250,204,21,0.10), transparent 55%)',
+                }}
+                aria-hidden="true"
+              />
+            )}
+            <button
+              type="button"
+              className="group relative z-[1] transition-transform active:scale-95"
+              aria-label="Ver mi QR de check-in"
+              onClick={() => setQrModal(true)}
+            >
             <div className="relative size-40 overflow-hidden rounded-2xl border-4 border-primary/25 shadow-elevated transition-colors group-hover:border-primary/40">
               {data.member.photo_url ? (
                 <img
@@ -329,10 +352,10 @@ export function MemberPortal() {
               })}
             </p>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="z-[1] text-xs text-muted-foreground">
             Toca tu foto para ver tu QR de check-in en grande.
           </p>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98]">
+          <label className="z-[1] inline-flex cursor-pointer items-center gap-2 rounded-full border border-border bg-secondary px-4 py-2 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98]">
             <Camera className="size-4" aria-hidden="true" />
             {uploading ? 'Subiendo…' : 'Cambiar mi foto'}
             <input
@@ -347,6 +370,7 @@ export function MemberPortal() {
               }}
             />
           </label>
+          </div>
         </section>
 
         {/* Membresía: borde dorado premium cuando está activa */}
