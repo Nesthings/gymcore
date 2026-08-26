@@ -151,6 +151,9 @@ def platform_gym_summary(gym_id: str, db: Session = Depends(get_db)) -> dict:
     gym = db.get(Gym, gym_id)
     if gym is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gimnasio no encontrado")
+    branches = db.execute(
+        text("SELECT COUNT(*) FROM gym_branches WHERE gym_id = :gid"), {"gid": gym_id}
+    ).scalar()
     staff = db.execute(
         text("SELECT COUNT(*) FROM users WHERE gym_id = :gid"), {"gid": gym_id}
     ).scalar()
@@ -158,7 +161,28 @@ def platform_gym_summary(gym_id: str, db: Session = Depends(get_db)) -> dict:
         text("SELECT COUNT(*) FROM members WHERE gym_id = :gid AND status = 'active'"),
         {"gid": gym_id},
     ).scalar()
-    return {"id": str(gym.id), "name": gym.name, "staff": staff or 0, "members": members or 0}
+    memberships = db.execute(
+        text(
+            "SELECT COUNT(*) FROM member_memberships WHERE gym_id = :gid "
+            "AND status IN ('active', 'expiring')"
+        ),
+        {"gid": gym_id},
+    ).scalar()
+    payments = db.execute(
+        text(
+            "SELECT COUNT(*) FROM payments WHERE gym_id = :gid AND status = 'paid'"
+        ),
+        {"gid": gym_id},
+    ).scalar()
+    return {
+        "id": str(gym.id),
+        "name": gym.name,
+        "branches": branches or 0,
+        "staff": staff or 0,
+        "members": members or 0,
+        "memberships": memberships or 0,
+        "payments": payments or 0,
+    }
 
 
 @router.get(
@@ -212,11 +236,12 @@ def platform_create_invite(body: dict, db: Session = Depends(get_db)) -> dict:
     from datetime import UTC, datetime, timedelta
 
     token = secrets.token_urlsafe(32)
+    expires_in_days = body.get("expires_in_days") or 30
     invite = GymInvite(
         token=token,
         gym_name=body.get("gym_name"),
         contact_email=body.get("contact_email"),
-        expires_at=datetime.now(UTC) + timedelta(days=30),
+        expires_at=datetime.now(UTC) + timedelta(days=int(expires_in_days)),
         status="pending",
     )
     db.add(invite)
@@ -224,10 +249,12 @@ def platform_create_invite(body: dict, db: Session = Depends(get_db)) -> dict:
     db.refresh(invite)
     return {
         "id": str(invite.id),
+        "token": token,
         "invite_link": f"/create-gym?token={token}",
         "gym_name": invite.gym_name,
         "contact_email": invite.contact_email,
         "status": invite.status,
+        "expires_at": invite.expires_at,
         "created_at": invite.created_at,
     }
 
@@ -237,21 +264,21 @@ def platform_create_invite(body: dict, db: Session = Depends(get_db)) -> dict:
     dependencies=[Depends(require_roles("super-admin"))],
 )
 def platform_list_invites(db: Session = Depends(get_db)) -> list[dict]:
-    rows = (
-        db.execute(text("SELECT * FROM gym_invites ORDER BY created_at DESC LIMIT 100"))
-        .mappings()
-        .all()
-    )
+    rows = db.execute(
+        text("SELECT * FROM gym_invites ORDER BY created_at DESC LIMIT 100")
+    ).mappings().all()
     out = []
     for r in rows:
         out.append(
             {
                 "id": str(r["id"]),
+                "token": r["token"],
                 "invite_link": f"/create-gym?token={r['token']}",
                 "gym_name": r["gym_name"],
                 "contact_email": r["contact_email"],
                 "status": r["status"],
                 "used_at": r["used_at"],
+                "expires_at": r["expires_at"],
                 "created_at": r["created_at"],
             }
         )
