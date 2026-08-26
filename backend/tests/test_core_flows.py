@@ -190,3 +190,32 @@ def test_weight_record_create_and_list(db_session, make_gym, make_member):
     eng = engagement(db_session, str(gym.id), str(member.id))
     assert len(eng["weight_records"]) == 1
     assert eng["weight_records"][0]["weight_kg"] == 80.5
+
+
+def test_suggestion_flow(db_session, make_gym, make_member):
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import func, select
+
+    from app.api.member_share import member_suggestion
+    from app.models import GymSuggestion
+
+    gym, _ = make_gym()
+    member = make_member(gym)
+    member.share_token = "tok-sug"
+    member.share_expires_at = datetime.now(UTC) + timedelta(days=30)
+    db_session.commit()
+
+    res = member_suggestion({"message": "Me encanta el gimnasio"}, "tok-sug", db_session)
+    assert res["status"] == "new"
+
+    count = db_session.scalar(
+        select(func.count())
+        .select_from(GymSuggestion)
+        .where(GymSuggestion.gym_id == gym.id)
+    )
+    assert count == 1
+    row = db_session.scalar(select(GymSuggestion).limit(1))
+    row.status = "read"
+    db_session.commit()
+    assert row.status == "read"

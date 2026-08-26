@@ -144,3 +144,54 @@ def member_share_weight(
         "notes": record.notes,
         "recorded_at": record.recorded_at,
     }
+
+
+@router.post(
+    "/member-suggestions",
+    status_code=status.HTTP_201_CREATED,
+    summary="El socio envía un comentario/sugerencia al gimnasio (portal)",
+)
+def member_suggestion(
+    body: dict,
+    token: str | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    member = _resolve_member(db, token or "")
+    message = (body.get("message") or "").strip()
+    if not message:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Escribe tu mensaje")
+    if len(message) > 2000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="El mensaje es muy largo (máx. 2000)"
+        )
+    # Anti-spam ligero: máximo 10 sugerencias por socio al día
+    sent_today = db.execute(
+        text(
+            "SELECT COUNT(*) FROM gym_suggestions WHERE gym_id = :gid "
+            "AND member_id = :mid AND created_at >= current_date"
+        ),
+        {"gid": member.gym_id, "mid": member.id},
+    ).scalar()
+    if (sent_today or 0) >= 10:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Has enviado muchas sugerencias hoy. Vuelve mañana.",
+        )
+
+    from app.models import GymSuggestion
+
+    suggestion = GymSuggestion(
+        gym_id=member.gym_id,
+        member_id=member.id,
+        member_name=member.full_name,
+        message=message,
+        status="new",
+    )
+    db.add(suggestion)
+    db.commit()
+    db.refresh(suggestion)
+    return {
+        "id": str(suggestion.id),
+        "status": suggestion.status,
+        "created_at": suggestion.created_at,
+    }
