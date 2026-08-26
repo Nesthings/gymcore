@@ -1,0 +1,12 @@
+# Netlify redirects / proxy — GymCore frontend (modo desarrollo: backend HTTP)
+# El backend vive detrás de un ALB público (aún sin HTTPS).
+# Proxy inverso: Netlify reenvía la petición y devuelve 200 (sin CORS/Mixed Content).
+
+# Proxy del API hacia el backend
+/api/*    http://gymcore-alb.us-east-1.elb.amazonaws.com/api/:splat    200
+
+# Proxy de media (fotos de socios, logos, etc.)
+/media/*  http://gymcore-alb.us-east-1.elb.amazonaws.com/media/:splat  200
+
+# Fallback SPA: todas las rutas sirven index.html
+/*        /index.html                                                 200
