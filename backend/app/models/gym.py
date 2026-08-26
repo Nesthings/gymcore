@@ -50,6 +50,10 @@ class Gym(UUIDPkMixin, Base):
     streak_grace_days: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    # Umbral de stock para marcar "stock bajo" en el módulo de productos
+    stock_alert_threshold: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5, server_default="5"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

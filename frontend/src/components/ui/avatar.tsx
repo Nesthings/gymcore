@@ -32,7 +32,13 @@ function Avatar({
       )}
     >
       {src ? (
-        <img src={src} alt={alt ?? name ?? 'Avatar'} className="size-full object-cover" />
+        <img
+          src={src}
+          alt={alt ?? name ?? 'Avatar'}
+          loading="lazy"
+          decoding="async"
+          className="size-full object-cover"
+        />
       ) : (
         <span className={cn('px-1', fallbackClassName)}>{initialsOf(name)}</span>
       )}

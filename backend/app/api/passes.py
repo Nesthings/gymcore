@@ -19,7 +19,30 @@ from app.models import Member, MemberPass
 router = APIRouter(tags=["passes"])
 
 
-def _resolve_pass(db: Session, token: str) -> MemberPass:
+def _normalize_pass_token(raw: str | None) -> str:
+    """Normaliza un token de pase venga como token crudo, URL (`/g?token=…`),
+    esquema `gymcore:pass:<token>` o parámetro suelto `token=<token>`."""
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    if value.startswith(("http://", "https://", "/", "gymcore:pass:", "token=")):
+        if "token=" in value:
+            # Aísla el primer parámetro `token=…` (hasta `&` o el final).
+            start = value.index("token=") + len("token=")
+            end = value.find("&", start)
+            token = value[start:] if end == -1 else value[start:end]
+            token = token.strip()
+            if token:
+                return token
+        if value.startswith("gymcore:pass:"):
+            token = value[len("gymcore:pass:") :].strip()
+            if token:
+                return token
+    return value
+
+
+def _resolve_pass(db: Session, raw_token: str) -> MemberPass:
+    token = _normalize_pass_token(raw_token)
     if not token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Falta el token")
     pase = db.scalar(select(MemberPass).where(MemberPass.token == token))

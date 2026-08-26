@@ -8,10 +8,12 @@ from sqlalchemy import create_engine, text
 
 ADMIN_URL = os.environ.get(
     "GYMCORE_TEST_ADMIN_URL",
-    "postgresql+psycopg://gymcore:gymcore_dev@localhost:5434/postgres",
+    "postgresql+psycopg://gymcore:gymcore_dev@localhost:5432/postgres",
 )
 TEST_DB = os.environ.get("GYMCORE_TEST_DB", "gymcore_test")
-TEST_URL = f"postgresql+psycopg://gymcore:gymcore_dev@localhost:5434/{TEST_DB}"
+TEST_HOST = os.environ.get("GYMCORE_TEST_HOST", "localhost")
+TEST_PORT = os.environ.get("GYMCORE_TEST_PORT", "5432")
+TEST_URL = f"postgresql+psycopg://gymcore:gymcore_dev@{TEST_HOST}:{TEST_PORT}/{TEST_DB}"
 
 os.environ["DATABASE_URL"] = TEST_URL
 
@@ -59,8 +61,9 @@ def clean_tables(_database):
                 "TRUNCATE audit_log, internal_notifications, outbound_notifications, "
                 "smart_alerts, smart_alert_rules, checkins, payments, "
                 "member_memberships, leads, members, membership_plans, "
-                "user_component_permissions, users, gym_subscription_events, "
-                "gym_invites, gym_branches, gyms RESTART IDENTITY CASCADE"
+                "sale_products, user_component_permissions, users, "
+                "gym_subscription_events, gym_invites, gym_branches, gyms "
+                "RESTART IDENTITY CASCADE"
             )
         )
         session.commit()

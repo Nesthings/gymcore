@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Loader2, QrCode, ScanLine, X } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { CheckCircle2, Loader2, QrCode, ScanLine } from 'lucide-react'
 
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { useToast } from '@/components/ui/toast'
+import QrCamera from '@/components/checkin/QrCamera'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -21,83 +22,6 @@ interface CheckinResult {
   member_name: string
   plan_active: boolean
   message?: string
-}
-
-function QrCamera({
-  onResult,
-  onError,
-  onClose,
-}: {
-  onResult: (data: string) => void
-  onError: (message: string) => void
-  onClose: () => void
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [busy, setBusy] = useState(true)
-
-  useEffect(() => {
-    let scanner: { start: () => Promise<void>; stop: () => void; destroy: () => void } | null = null
-    let cancelled = false
-
-    const boot = async () => {
-      try {
-        const mod = await import('qr-scanner')
-        const QrScannerClass = (mod.default ?? mod) as {
-          hasCamera: () => Promise<boolean>
-          new (
-            video: HTMLVideoElement,
-            onDecode: (result: string) => void,
-          ): { start: () => Promise<void>; stop: () => void; destroy: () => void }
-        }
-        const hasCamera = await QrScannerClass.hasCamera()
-        if (!hasCamera) throw new Error('Este dispositivo no tiene cámara disponible')
-        if (cancelled || !videoRef.current) return
-        scanner = new QrScannerClass(videoRef.current, (result) => {
-          onResult(result)
-        })
-        await scanner.start()
-        if (!cancelled) setBusy(false)
-      } catch (err) {
-        if (!cancelled) {
-          onError(err instanceof Error ? err.message : 'No se pudo iniciar la cámara')
-        }
-      }
-    }
-
-    boot()
-    return () => {
-      cancelled = true
-      scanner?.stop()
-      scanner?.destroy()
-    }
-  }, [onResult, onError])
-
-  return (
-    <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-xl border border-border bg-black">
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          className="aspect-video w-full object-cover"
-        />
-        {busy && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-white/80">
-            <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-            Iniciando cámara…
-          </div>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          Apunta al código QR del socio para registrarlo.
-        </p>
-        <Button type="button" size="sm" variant="outline" onClick={onClose}>
-          <X /> Cancelar
-        </Button>
-      </div>
-    </div>
-  )
 }
 
 /**

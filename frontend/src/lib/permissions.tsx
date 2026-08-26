@@ -12,6 +12,7 @@ export const COMPONENT_CATALOG: { slug: string; label: string; description?: str
   { slug: 'finanzas', label: 'Finanzas', description: 'Pagos, ingresos y morosidad' },
   { slug: 'crm', label: 'CRM', description: 'Leads y embudo de captación' },
   { slug: 'checkin', label: 'Check-in', description: 'Registro de acceso por QR' },
+  { slug: 'productos', label: 'Productos', description: 'Catálogo de productos de venta' },
   { slug: 'inteligencia', label: 'Inteligencia', description: 'Riesgo de abandono y analítica' },
   { slug: 'configuracion', label: 'Configuración', description: 'Gimnasio, sucursales y equipo' },
   { slug: 'auditoria', label: 'Auditoría', description: 'Bitácora de cambios' },

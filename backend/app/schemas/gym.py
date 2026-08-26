@@ -16,6 +16,7 @@ class GymUpdate(BaseModel):
     whatsapp_enabled: bool | None = None
     setup_completed: bool | None = None
     streak_grace_days: int | None = Field(default=None, ge=0, le=7)
+    stock_alert_threshold: int | None = Field(default=None, ge=1, le=1000)
 
 
 class GymRead(BaseModel):
@@ -34,6 +35,7 @@ class GymRead(BaseModel):
     whatsapp_phone_number: str | None = None
     whatsapp_enabled: bool
     setup_completed: bool
+    stock_alert_threshold: int
     created_at: datetime
 
 

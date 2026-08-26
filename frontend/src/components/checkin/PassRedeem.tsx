@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import QrScanner from 'qr-scanner'
+import { useCallback, useRef, useState } from 'react'
 import { PartyPopper, ScanLine, Ticket } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -13,39 +12,32 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
+import QrCamera from '@/components/checkin/QrCamera'
 import { apiFetch } from '@/lib/api'
 
 function extractPassToken(decoded: string): string | null {
   const value = decoded.trim()
   if (!value) return null
-  // El QR del pase codifica `gymcore:pass:<token>`
-  if (value.includes(':')) {
-    const last = value.split(':').pop()
-    if (last) return last
-  }
+  // Caso 1: URL completa o relativa (`https://.../g?token=...` o `/g?token=...`)
   try {
     const url = new URL(value, window.location.origin)
     const t = url.searchParams.get('token')
-    if (t) return t
+    if (t && t.trim()) return t.trim()
   } catch {
-    // no es URL: puede ser el token crudo
+    // no es URL parseable
   }
+  // Caso 2: esquema propio `gymcore:pass:<token>`
+  if (value.startsWith('gymcore:pass:')) {
+    const t = value.slice('gymcore:pass:'.length).trim()
+    return t || null
+  }
+  // Caso 3: parámetro suelto `token=<token>`
+  if (value.startsWith('token=')) {
+    const t = value.slice('token='.length).trim()
+    return t || null
+  }
+  // Caso 4: token crudo
   return value
-}
-
-/** Pide el permiso de cámara DENTRO del gesto del usuario (clic). */
-async function requestCameraPermission(): Promise<boolean> {
-  try {
-    if (!navigator.mediaDevices?.getUserMedia) return false
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' },
-      audio: false,
-    })
-    stream.getTracks().forEach((track) => track.stop())
-    return true
-  } catch {
-    return false
-  }
 }
 
 export function PassRedeem() {
@@ -58,18 +50,15 @@ export function PassRedeem() {
   const [busy, setBusy] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const scannerRef = useRef<QrScanner | null>(null)
+  // El scanner emite varios `onResult` por el mismo QR; con esta bandera solo
+  // se canjea UNA vez por escaneo (evita toasts de "ya utilizado" duplicados).
+  const redeemingRef = useRef(false)
   const { toast } = useToast()
-
-  const stopScanner = useCallback(() => {
-    scannerRef.current?.stop()
-    scannerRef.current?.destroy()
-    scannerRef.current = null
-  }, [])
 
   const redeem = useCallback(
     async (rawToken: string) => {
+      if (redeemingRef.current) return
+      redeemingRef.current = true
       setBusy(true)
       setResult(null)
       try {
@@ -93,6 +82,7 @@ export function PassRedeem() {
         })
       } finally {
         setBusy(false)
+        redeemingRef.current = false
       }
     },
     [toast],
@@ -109,39 +99,8 @@ export function PassRedeem() {
 
   const openScanner = async () => {
     setCameraError(null)
-    const ok = await requestCameraPermission()
-    if (!ok) {
-      setCameraError('No se pudo acceder a la cámara. Revisa los permisos o pega el token.')
-      return
-    }
     setScannerOpen(true)
   }
-
-  useEffect(() => {
-    if (!scannerOpen || !videoRef.current) return
-    const scanner = new QrScanner(
-      videoRef.current,
-      (decoded: string) => {
-        const t = extractPassToken(decoded)
-        if (!t) return
-        stopScanner()
-        setScannerOpen(false)
-        redeem(t)
-      },
-      (error) => {
-        console.warn('qr-scan error', error)
-      },
-    )
-    scannerRef.current = scanner
-    scanner.setCamera('environment').catch(() => {})
-    scanner.start().catch(() => {
-      setCameraError('No se pudo iniciar la cámara.')
-      setScannerOpen(false)
-    })
-    return () => {
-      stopScanner()
-    }
-  }, [scannerOpen, stopScanner, redeem])
 
   return (
     <div className="space-y-3">
@@ -190,9 +149,20 @@ export function PassRedeem() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="overflow-hidden rounded-xl border border-border bg-black">
-              <video ref={videoRef} muted playsInline className="aspect-square w-full object-cover" />
-            </div>
+            <QrCamera
+              onResult={(decoded) => {
+                const t = extractPassToken(decoded)
+                if (!t) return
+                setScannerOpen(false)
+                redeem(t)
+              }}
+              onError={(message) => {
+                setCameraError(message)
+                setScannerOpen(false)
+              }}
+              onClose={() => setScannerOpen(false)}
+              hint="Apunta al QR del pase del invitado. Se canjeará automáticamente."
+            />
             {cameraError && <p className="text-sm text-destructive">{cameraError}</p>}
           </div>
         </DialogContent>

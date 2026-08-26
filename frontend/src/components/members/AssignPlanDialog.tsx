@@ -71,6 +71,7 @@ export function AssignPlanDialog({
   const [memberQuery, setMemberQuery] = useState('')
   const [memberResults, setMemberResults] = useState<MemberOption[]>([])
   const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [selectedMemberName, setSelectedMemberName] = useState('')
   const [planId, setPlanId] = useState('')
   const [startDate, setStartDate] = useState(todayISO())
   const [paidAmount, setPaidAmount] = useState('')
@@ -90,6 +91,7 @@ export function AssignPlanDialog({
     setMemberQuery('')
     setMemberResults([])
     setSelectedMemberId('')
+    setSelectedMemberName('')
     setPlanId('')
     setStartDate(todayISO())
     setPaidAmount('')
@@ -192,6 +194,7 @@ export function AssignPlanDialog({
                         type="button"
                         onClick={() => {
                           setSelectedMemberId(m.id)
+                          setSelectedMemberName(m.full_name)
                           setMemberQuery('')
                           setMemberResults([])
                         }}
@@ -215,15 +218,43 @@ export function AssignPlanDialog({
                   })}
                 </div>
               )}
-              {selectedMemberId && (
-                <p className="text-xs text-success">Socio seleccionado ✓</p>
+              {selectedMemberId && selectedMemberName && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-foreground">
+                      {selectedMemberName}
+                    </span>
+                    <span className="block text-xs text-success">
+                      Socio seleccionado ✓
+                    </span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-muted-foreground"
+                    onClick={() => {
+                      setSelectedMemberId('')
+                      setSelectedMemberName('')
+                    }}
+                  >
+                    Cambiar
+                  </Button>
+                </div>
               )}
             </div>
           )}
 
           <div className="space-y-2">
             <Label>Plan *</Label>
-            <Select value={planId} onValueChange={setPlanId}>
+            <Select
+              value={planId}
+              onValueChange={(value) => {
+                setPlanId(value)
+                const plan = plans.find((p) => p.id === value)
+                if (plan) setPaidAmount(String(plan.price))
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecciona un plan" />
               </SelectTrigger>

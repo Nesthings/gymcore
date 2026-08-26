@@ -18,6 +18,7 @@ COMPONENTS: dict[str, str] = {
     "finanzas": "Pagos y cobranza",
     "checkin": "Check-in",
     "crm": "Ventas y leads",
+    "productos": "Productos",
     "inteligencia": "Riesgo de abandono",
     "configuracion": "Configuración",
     "auditoria": "Bitácora",
@@ -30,6 +31,7 @@ COMPONENT_DESCRIPTIONS: dict[str, str] = {
     "finanzas": "Cobranza: pagos registrados, recibos y morosidad.",
     "checkin": "Registro de entrada por nombre o código QR.",
     "crm": "Pipeline de leads: prospección, seguimiento y conversión.",
+    "productos": "Catálogo de productos de venta con existencia y alertas de stock.",
     "inteligencia": "Socios en riesgo de abandono y score de retención.",
     "configuracion": "Gimnasio, sucursales, equipo y accesos.",
     "auditoria": "Bitácora de acciones del sistema.",
@@ -43,6 +45,7 @@ ROLE_DEFAULT_COMPONENTS: dict[str, set[str]] = {
         "socios",
         "checkin",
         "crm",
+        "productos",
         "inteligencia",
     },
     "recepcion": {
@@ -52,6 +55,7 @@ ROLE_DEFAULT_COMPONENTS: dict[str, set[str]] = {
         "finanzas",
         "checkin",
         "crm",
+        "productos",
         "auditoria",
     },
 }

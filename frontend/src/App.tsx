@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -7,27 +8,59 @@ import { DashboardConfigProvider } from '@/lib/dashboard-config'
 import { NavConfigProvider } from '@/lib/nav-config'
 import { PermissionsProvider } from '@/lib/permissions'
 import { SetupProvider } from '@/lib/setup'
-import { CreateGym } from '@/pages/auth/CreateGym'
-import { ForgotPassword } from '@/pages/auth/ForgotPassword'
-import { GuestPass } from '@/pages/GuestPass'
-import { Login } from '@/pages/auth/Login'
-import { ResetPassword } from '@/pages/auth/ResetPassword'
-import { Audit } from '@/pages/Audit'
-import { Checkin } from '@/pages/Checkin'
-import { Configuracion } from '@/pages/Configuracion'
-import { Crm } from '@/pages/Crm'
-import { Dashboard } from '@/pages/Dashboard'
-import { DesignSystem } from '@/pages/DesignSystem'
-import { MemberDetail } from '@/pages/MemberDetail'
-import { MemberPortal } from '@/pages/MemberPortal'
-import { Members } from '@/pages/Members'
-import { Memberships } from '@/pages/Memberships'
-import { Payments } from '@/pages/Payments'
-import { Platform } from '@/pages/Platform'
-import { Profile } from '@/pages/Profile'
-import { Riesgo } from '@/pages/Riesgo'
-import { SetupWizard } from '@/pages/SetupWizard'
-import { Sugerencias } from '@/pages/Sugerencias'
+import { GymMetaProvider } from '@/lib/gym-meta'
+
+const CreateGym = lazy(() => import('@/pages/auth/CreateGym').then((m) => ({ default: m.CreateGym })))
+const ForgotPassword = lazy(() =>
+  import('@/pages/auth/ForgotPassword').then((m) => ({ default: m.ForgotPassword })),
+)
+const GuestPass = lazy(() => import('@/pages/GuestPass').then((m) => ({ default: m.GuestPass })))
+const Login = lazy(() => import('@/pages/auth/Login').then((m) => ({ default: m.Login })))
+const ResetPassword = lazy(() =>
+  import('@/pages/auth/ResetPassword').then((m) => ({ default: m.ResetPassword })),
+)
+const Audit = lazy(() => import('@/pages/Audit').then((m) => ({ default: m.Audit })))
+const Checkin = lazy(() => import('@/pages/Checkin').then((m) => ({ default: m.Checkin })))
+const Configuracion = lazy(() =>
+  import('@/pages/Configuracion').then((m) => ({ default: m.Configuracion })),
+)
+const Crm = lazy(() => import('@/pages/Crm').then((m) => ({ default: m.Crm })))
+const Dashboard = lazy(() => import('@/pages/Dashboard').then((m) => ({ default: m.Dashboard })))
+const DesignSystem = lazy(() =>
+  import('@/pages/DesignSystem').then((m) => ({ default: m.DesignSystem })),
+)
+const MemberDetail = lazy(() =>
+  import('@/pages/MemberDetail').then((m) => ({ default: m.MemberDetail })),
+)
+const MemberPortal = lazy(() =>
+  import('@/pages/MemberPortal').then((m) => ({ default: m.MemberPortal })),
+)
+const Members = lazy(() => import('@/pages/Members').then((m) => ({ default: m.Members })))
+const Memberships = lazy(() =>
+  import('@/pages/Memberships').then((m) => ({ default: m.Memberships })),
+)
+const Payments = lazy(() => import('@/pages/Payments').then((m) => ({ default: m.Payments })))
+const Platform = lazy(() => import('@/pages/Platform').then((m) => ({ default: m.Platform })))
+const Profile = lazy(() => import('@/pages/Profile').then((m) => ({ default: m.Profile })))
+const Products = lazy(() => import('@/pages/Products').then((m) => ({ default: m.Products })))
+const Riesgo = lazy(() => import('@/pages/Riesgo').then((m) => ({ default: m.Riesgo })))
+const SetupWizard = lazy(() =>
+  import('@/pages/SetupWizard').then((m) => ({ default: m.SetupWizard })),
+)
+const Sugerencias = lazy(() =>
+  import('@/pages/Sugerencias').then((m) => ({ default: m.Sugerencias })),
+)
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm">
+        <span className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        Cargando…
+      </div>
+    </div>
+  )
+}
 
 function App() {
   return (
@@ -35,10 +68,12 @@ function App() {
       <ThemeProvider>
         <PermissionsProvider>
           <SetupProvider>
-            <NavConfigProvider>
-              <DashboardConfigProvider>
-                <BrowserRouter>
-                  <Routes>
+            <GymMetaProvider>
+              <NavConfigProvider>
+                <DashboardConfigProvider>
+                  <BrowserRouter>
+                  <Suspense fallback={<RouteFallback />}>
+                    <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/create-gym" element={<CreateGym />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -113,6 +148,14 @@ function App() {
                       }
                     />
                     <Route
+                      path="/productos"
+                      element={
+                        <ProtectedRoute component="productos">
+                          <Products />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/riesgo"
                       element={
                         <ProtectedRoute component="inteligencia">
@@ -163,9 +206,11 @@ function App() {
 
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
+                  </Suspense>
                 </BrowserRouter>
               </DashboardConfigProvider>
             </NavConfigProvider>
+            </GymMetaProvider>
           </SetupProvider>
         </PermissionsProvider>
       </ThemeProvider>

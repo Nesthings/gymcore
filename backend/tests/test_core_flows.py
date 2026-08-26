@@ -316,3 +316,59 @@ def test_pass_generate_and_redeem(db_session, make_gym, make_member, make_plan, 
     pase.redeemed_lead_id = lead.id
     db_session.commit()
     assert lead.source == "pase de invitado"
+
+
+# --------------------------------------------------------------------------
+# Módulo de productos: catálogo de venta
+# --------------------------------------------------------------------------
+
+
+def test_product_crud_flow(db_session, make_gym):
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+
+    from app.api.products import _get_product_or_404, create_product, list_products, update_product
+    from app.schemas.product import ProductCreate, ProductUpdate
+
+    gym, _ = make_gym()
+    ctx = SimpleNamespace(
+        gym={"id": gym.id},
+        user=SimpleNamespace(sub="00000000-0000-0000-0000-000000000001"),
+    )
+
+    product = create_product(
+        ProductCreate(
+            name="Shaker 600 ml",
+            category="Accesorios",
+            price=199.0,
+            stock_quantity=10,
+        ),
+        ctx,
+        db_session,
+    )
+    assert product.id is not None
+    assert product.name == "Shaker 600 ml"
+
+    products = list_products(ctx, db_session, category=None, active_only=False, limit=100)
+    assert any(p.id == product.id for p in products)
+
+    updated = update_product(
+        str(product.id),
+        ProductUpdate(price=159.0, stock_quantity=8),
+        ctx,
+        db_session,
+    )
+    assert float(updated.price) == 159.0
+    assert updated.stock_quantity == 8
+
+    fetched = _get_product_or_404(db_session, str(gym.id), str(product.id))
+    assert fetched.name == "Shaker 600 ml"
+
+    db_session.delete(product)
+    db_session.commit()
+    try:
+        _get_product_or_404(db_session, str(gym.id), str(product.id))
+        raise AssertionError("debería lanzar 404 tras eliminar")
+    except HTTPException as exc:
+        assert exc.status_code == 404

@@ -46,7 +46,7 @@ const SECTION_LABELS: Record<SectionId, string> = {
 const SECTIONS_KEY_PREFIX = 'gymcore_dashboard_sections_'
 
 // Orden de las tarjetas del Módulo "Módulos" en el Inicio (el resto va después).
-const MODULE_CARD_ORDER = ['socios', 'membresias', 'checkin', 'finanzas']
+const MODULE_CARD_ORDER = ['socios', 'membresias', 'checkin', 'finanzas', 'crm', 'productos']
 
 type Period = 'day' | 'week' | 'month'
 

@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useSetup } from '@/lib/setup'
+import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 const STEPS = [
@@ -178,6 +179,8 @@ export function SetupWizard() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { refresh } = useSetup()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [step, setStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -365,8 +368,23 @@ export function SetupWizard() {
   const progress = (step / (STEPS.length - 1)) * 100
 
   return (
-    <div className="min-h-[100dvh] bg-background px-4 py-6 sm:px-6 sm:py-10">
-      <div className="mx-auto w-full max-w-5xl">
+    <div className="relative min-h-[100dvh] overflow-hidden bg-background px-4 py-6 sm:px-6 sm:py-10">
+      {/* Aura volt/lime sutil de fondo (energía de gimnasio, sin ruido) */}
+      <div
+        className={cn(
+          'pointer-events-none absolute -top-40 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full blur-3xl',
+          isDark ? 'bg-lime-400/10' : 'bg-lime-400/15',
+        )}
+        aria-hidden="true"
+      />
+      <div
+        className={cn(
+          'pointer-events-none absolute inset-0',
+          isDark ? 'bg-[radial-gradient(circle_at_50%_0%,transparent,var(--background)_70%)]' : '',
+        )}
+        aria-hidden="true"
+      />
+      <div className="relative mx-auto w-full max-w-5xl">
         {/* Header */}
         <header className="mb-6 flex flex-wrap items-center justify-between gap-4 sm:mb-8">
           <div className="flex items-center gap-4">

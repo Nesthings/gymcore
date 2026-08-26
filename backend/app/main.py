@@ -26,6 +26,7 @@ from app.api import (
     passes,
     payments,
     posts,
+    products,
     risk,
     suggestions,
     users,
@@ -94,6 +95,7 @@ app.include_router(leads.router, prefix="/api/v1")
 app.include_router(member_share.router, prefix="/api/v1")
 app.include_router(member_portal.router, prefix="/api/v1")
 app.include_router(posts.router, prefix="/api/v1")
+app.include_router(products.router, prefix="/api/v1")
 app.include_router(passes.router, prefix="/api/v1")
 app.include_router(risk.router, prefix="/api/v1")
 app.include_router(suggestions.router, prefix="/api/v1")

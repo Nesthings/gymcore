@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/toast'
 import { apiFetch } from '@/lib/api'
+import { buildWhatsAppUrl, detectPlatform } from '@/lib/share'
 import { cn } from '@/lib/utils'
 
 interface PassPolicy {
@@ -306,12 +307,13 @@ export function PassesSection({
                     size="sm"
                     onClick={() => {
                       const url = `${window.location.origin}${generated.share_url}`
-                      window.open(
-                        `https://wa.me/?text=${encodeURIComponent(
-                          `¡Te invito a entrenar conmigo! ${TYPE_LABEL[policy.pass_type ?? ''] ?? 'Pase'}: ${url}`,
-                        )}`,
-                        '_blank',
-                      )
+                      const message = `¡Te invito a entrenar conmigo! ${TYPE_LABEL[policy.pass_type ?? ''] ?? 'Pase'}: ${url}`
+                      const whatsappUrl = buildWhatsAppUrl(message)
+                      if (detectPlatform() === 'ios') {
+                        window.location.href = whatsappUrl
+                      } else {
+                        window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+                      }
                     }}
                   >
                     WhatsApp

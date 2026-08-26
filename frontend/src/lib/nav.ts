@@ -1,6 +1,7 @@
 import {
   History,
   LayoutDashboard,
+  Package,
   ScanLine,
   Settings2,
   Target,
@@ -35,6 +36,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { to: '/pagos', label: 'Pagos', component: 'finanzas' },
   { to: '/checkin', label: 'Check-in', component: 'checkin' },
   { to: '/crm', label: 'CRM', component: 'crm' },
+  { to: '/productos', label: 'Productos', component: 'productos' },
   { to: '/riesgo', label: 'Riesgo', component: 'inteligencia' },
   { to: '/configuracion', label: 'Configuración', component: 'configuracion' },
   { to: '/auditoria', label: 'Auditoría', component: 'auditoria' },
@@ -83,6 +85,13 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     text: 'text-stone-700 dark:text-stone-300',
     iconBg: 'bg-stone-500/15',
     pageBg: 'from-stone-100/70 dark:from-stone-400/[0.08]',
+  },
+  productos: {
+    icon: Package,
+    desc: 'Catálogo de productos de venta',
+    text: 'text-primary',
+    iconBg: 'bg-primary/15',
+    pageBg: 'from-lime-100/70 dark:from-lime-400/[0.08]',
   },
   inteligencia: {
     icon: TrendingDown,
