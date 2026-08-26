@@ -381,7 +381,7 @@ export function MemberPortal() {
             className={cn(
               'rounded-2xl',
               membership.status === 'active'
-                ? 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-400 p-[2px] shadow-[0_10px_30px_-12px_rgba(250,204,21,0.55)]'
+                ? 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-500 p-[2px] shadow-[0_10px_30px_-12px_rgba(250,204,21,0.55)]'
                 : 'border border-border bg-card p-4',
             )}
           >
@@ -397,7 +397,7 @@ export function MemberPortal() {
                     className="pointer-events-none absolute inset-0"
                     style={{
                       background:
-                        'radial-gradient(120% 120% at 100% 0%, rgba(250,204,21,0.18), transparent 60%)',
+                        'radial-gradient(120% 120% at 0% 100%, rgba(250,204,21,0.10), transparent 55%)',
                     }}
                     aria-hidden="true"
                   />
@@ -423,7 +423,7 @@ export function MemberPortal() {
                   <p className="text-lg font-semibold">{membership.plan_name}</p>
                 </div>
                 {membership.status === 'active' ? (
-                  <Badge className="border-transparent bg-gradient-to-r from-yellow-200 via-yellow-300 to-amber-400 text-yellow-950">
+                  <Badge className="border-transparent bg-gradient-to-r from-yellow-200 via-yellow-300 to-yellow-400 text-yellow-950">
                     ★ Activa
                   </Badge>
                 ) : (
