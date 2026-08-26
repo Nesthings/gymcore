@@ -24,6 +24,7 @@ export interface MemberFormData {
   birth_date?: string | null
   gender?: string | null
   emergency_contact?: string | null
+  emergency_phone?: string | null
   notes?: string | null
 }
 
@@ -54,6 +55,7 @@ export function MemberFormDialog({
   const [birthDate, setBirthDate] = useState('')
   const [gender, setGender] = useState('')
   const [emergencyContact, setEmergencyContact] = useState('')
+  const [emergencyPhone, setEmergencyPhone] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,6 +69,7 @@ export function MemberFormDialog({
     setBirthDate(member?.birth_date ?? '')
     setGender(member?.gender ?? '')
     setEmergencyContact(member?.emergency_contact ?? '')
+    setEmergencyPhone(member?.emergency_phone ?? '')
     setNotes(member?.notes ?? '')
     setError(null)
   }, [open, member])
@@ -87,6 +90,7 @@ export function MemberFormDialog({
         birth_date: birthDate || null,
         gender: gender || null,
         emergency_contact: emergencyContact.trim() || null,
+        emergency_phone: emergencyPhone.trim() || null,
         notes: notes.trim() || null,
       })
       if (member?.id) {
@@ -175,13 +179,23 @@ export function MemberFormDialog({
               </select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Contacto de emergencia</Label>
-            <Input
-              value={emergencyContact}
-              onChange={(e) => setEmergencyContact(e.target.value)}
-              placeholder="Nombre y teléfono de contacto alternativo"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Contacto de emergencia</Label>
+              <Input
+                value={emergencyContact}
+                onChange={(e) => setEmergencyContact(e.target.value)}
+                placeholder="Nombre de la persona"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono de emergencia</Label>
+              <Input
+                value={emergencyPhone}
+                onChange={(e) => setEmergencyPhone(e.target.value)}
+                placeholder="55 1234 5678"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Notas</Label>
