@@ -61,11 +61,11 @@ const palette = [
 ]
 
 const darkPalette = [
-  { name: 'background', token: 'bg-background', hex: '#141310' },
+  { name: 'background', token: 'bg-background', hex: '#121110' },
   { name: 'card', token: 'bg-card', hex: '#1a1917' },
-  { name: 'primary', token: 'bg-primary', hex: '#a3e635' },
-  { name: 'primary-foreground', token: 'bg-primary-foreground', hex: '#14140b' },
-  { name: 'muted', token: 'bg-muted', hex: '#1f1d19' },
+  { name: 'primary', token: 'bg-primary', hex: '#ef4444' },
+  { name: 'primary-foreground', token: 'bg-primary-foreground', hex: '#17080a' },
+  { name: 'muted', token: 'bg-muted', hex: '#1d1c18' },
   { name: 'muted-foreground', token: 'bg-muted-foreground', hex: '#9b968b' },
 ]
 

@@ -39,7 +39,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // El dark mode vive en el atributo `data-theme="dark"` del <html>.
-    document.documentElement.toggleAttribute('data-theme', theme === 'dark')
+    // NOTA: usar setAttribute (no toggleAttribute), que pondría el atributo
+    // vacío (`data-theme=""`) y no matchearía el selector `[data-theme='dark']`.
+    const el = document.documentElement
+    if (theme === 'dark') {
+      el.setAttribute('data-theme', 'dark')
+    } else {
+      el.removeAttribute('data-theme')
+    }
     try {
       localStorage.setItem(key, theme)
     } catch {
