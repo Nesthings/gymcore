@@ -16,6 +16,20 @@ from app.services.risk_engine import risk_for_gym
 
 router = APIRouter(prefix="/dashboards", tags=["dashboards"])
 
+# Resumen operativo de las tarjetas del Dashboard (lo consume /dashboard/summary)
+summary_router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+@summary_router.get("/summary")
+def dashboard_summary(
+    ctx: CurrentGym = Depends(require_component("dashboard")),
+    db: Session = Depends(get_db),
+    period: str = Query(default="week", pattern="^(day|week|month)$"),
+) -> dict:
+    from app.api.gyms import gym_summary_data
+
+    return gym_summary_data(db, str(ctx.gym["id"]))
+
 PERIODS = ("day", "week", "month")
 
 

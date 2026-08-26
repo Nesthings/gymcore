@@ -67,12 +67,8 @@ def upload_gym_logo(
     return gym
 
 
-@router.get("/gyms/me/summary", summary="Resumen operativo del gimnasio")
-def gym_summary(
-    ctx: CurrentGym = Depends(get_current_gym),
-    db: Session = Depends(get_db),
-) -> dict:
-    gid = str(ctx.gym["id"])
+def gym_summary_data(db: Session, gym_id: str) -> dict:
+    gid = gym_id
     today = "current_date"
     socios_activos = db.execute(
         text("SELECT COUNT(*) FROM members WHERE gym_id = :gid AND status = 'active'"),
@@ -112,9 +108,9 @@ def gym_summary(
     socios_en_riesgo = db.execute(
         text(
             "SELECT COUNT(*) FROM members m WHERE m.gym_id = :gid AND m.status = 'active' "
-            "AND (SELECT MAX(c.checked_at) FROM checkins c WHERE c.member_id = m.id) "
-            "IS NULL OR (SELECT MAX(c.checked_at) FROM checkins c WHERE c.member_id = m.id) "
-            "< now() - interval '14 days'"
+            "AND ((SELECT MAX(c.checked_at) FROM checkins c WHERE c.member_id = m.id) IS NULL "
+            "OR (SELECT MAX(c.checked_at) FROM checkins c WHERE c.member_id = m.id) "
+            "< now() - interval '14 days')"
         ),
         {"gid": gid},
     ).scalar()
@@ -126,6 +122,14 @@ def gym_summary(
         "morosidad": morosidad or 0,
         "socios_en_riesgo": socios_en_riesgo or 0,
     }
+
+
+@router.get("/gyms/me/summary", summary="Resumen operativo del gimnasio")
+def gym_summary(
+    ctx: CurrentGym = Depends(get_current_gym),
+    db: Session = Depends(get_db),
+) -> dict:
+    return gym_summary_data(db, str(ctx.gym["id"]))
 
 
 # --------------------------------------------------------------------------
