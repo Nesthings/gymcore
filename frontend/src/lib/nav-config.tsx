@@ -31,16 +31,23 @@ function storageKey(userId: string | undefined) {
 }
 
 function loadPinned(key: string): string[] {
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) return parsed.filter((c) => typeof c === 'string')
+  // Fusiona lo guardado por el usuario con los defaults actuales: así los
+  // módulos que se agregan al producto (ej. "ventas") aparecen sin que el
+  // usuario deba borrar su localStorage, respetando su orden/personalización.
+  const saved: string[] = (() => {
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) return parsed.filter((c) => typeof c === 'string')
+      }
+    } catch {
+      // sin almacenamiento
     }
-  } catch {
-    // sin almacenamiento
-  }
-  return DEFAULT_PINNED
+    return []
+  })()
+  const merged = [...DEFAULT_PINNED, ...saved.filter((c) => !DEFAULT_PINNED.includes(c))]
+  return merged.length > 0 ? merged : DEFAULT_PINNED
 }
 
 export function NavConfigProvider({ children }: { children: React.ReactNode }) {
