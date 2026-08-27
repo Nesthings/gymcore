@@ -58,7 +58,7 @@ interface MembershipPlan {
   pass_period?: string | null
   pass_type?: string | null
   pass_requires_guest?: boolean
-  pass_expiry_minutes?: number
+  pass_expiry_hours?: number
 }
 
 interface ActiveMembership {
@@ -119,7 +119,7 @@ function PlanFormDialog({
   const [passPeriod, setPassPeriod] = useState('month')
   const [passType, setPassType] = useState('invitado')
   const [passRequiresGuest, setPassRequiresGuest] = useState(false)
-  const [passExpiryMinutes, setPassExpiryMinutes] = useState('30')
+  const [passExpiryHours, setPassExpiryHours] = useState('24')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
@@ -136,7 +136,7 @@ function PlanFormDialog({
     setPassPeriod(plan?.pass_period ?? 'month')
     setPassType(plan?.pass_type ?? 'invitado')
     setPassRequiresGuest(plan?.pass_requires_guest ?? false)
-    setPassExpiryMinutes(plan?.pass_expiry_minutes != null ? String(plan.pass_expiry_minutes) : '30')
+    setPassExpiryHours(plan?.pass_expiry_hours != null ? String(plan.pass_expiry_hours) : '24')
     setError(null)
   }, [open, plan])
 
@@ -160,7 +160,7 @@ function PlanFormDialog({
         pass_period: passQuantity ? passPeriod : null,
         pass_type: passQuantity ? passType : null,
         pass_requires_guest: passRequiresGuest,
-        pass_expiry_minutes: passExpiryMinutes ? Number(passExpiryMinutes) : 30,
+        pass_expiry_hours: passExpiryHours ? Number(passExpiryHours) : 24,
       })
       if (plan) {
         await apiFetch(`/membership-plans/${plan.id}`, { method: 'PATCH', body })
@@ -279,13 +279,17 @@ function PlanFormDialog({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label>Expira (min)</Label>
-                <Input
-                  type="number"
-                  min={5}
-                  value={passExpiryMinutes}
-                  onChange={(e) => setPassExpiryMinutes(e.target.value)}
-                />
+                <Label>Vence en</Label>
+                <select
+                  value={passExpiryHours}
+                  onChange={(e) => setPassExpiryHours(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                >
+                  <option value="12">12 horas</option>
+                  <option value="24">24 horas</option>
+                  <option value="48">48 horas</option>
+                  <option value="72">72 horas</option>
+                </select>
               </div>
             </div>
             <label className="mt-3 flex items-center gap-2 text-sm text-foreground">

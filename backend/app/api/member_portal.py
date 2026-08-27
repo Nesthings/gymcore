@@ -316,7 +316,7 @@ def member_passes(
         "ask_phone": plan.pass_ask_phone if plan else False,
         "ask_email": plan.pass_ask_email if plan else False,
         "max_accumulate": plan.pass_max_accumulate if plan else None,
-        "expiry_minutes": plan.pass_expiry_minutes if plan else 30,
+        "expiry_hours": plan.pass_expiry_hours if plan else 24,
     }
     available = 0
     renewal_date = None
@@ -376,7 +376,7 @@ def generate_pass(
             detail="Este pase requiere registrar al invitado",
         )
 
-    expires_at = datetime.now(UTC) + timedelta(minutes=plan.pass_expiry_minutes or 30)
+    expires_at = datetime.now(UTC) + timedelta(hours=plan.pass_expiry_hours or 24)
     pase = MemberPass(
         gym_id=member.gym_id,
         member_id=member.id,

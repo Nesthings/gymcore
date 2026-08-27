@@ -25,7 +25,7 @@ interface PassPolicy {
   requires_guest: boolean
   ask_phone: boolean
   ask_email: boolean
-  expiry_minutes?: number
+  expiry_hours?: number
 }
 
 interface PassHistoryItem {
@@ -276,7 +276,8 @@ export function PassesSection({
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                El pase es de un solo uso y expira en {policy.expiry_minutes ?? 30} minutos.
+                El pase es de un solo uso y expira en{' '}
+                {policy.expiry_hours ? `${policy.expiry_hours} horas` : '24 horas'}.
               </p>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>

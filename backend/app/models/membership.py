@@ -42,8 +42,8 @@ class MembershipPlan(GymScopedMixin, UUIDPkMixin, Base):
         Boolean, nullable=False, default=False, server_default="false"
     )
     pass_max_accumulate: Mapped[int | None] = mapped_column(Integer)
-    pass_expiry_minutes: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=30, server_default="30"
+    pass_expiry_hours: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=24, server_default="24"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

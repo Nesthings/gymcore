@@ -20,7 +20,7 @@ class MembershipPlanCreate(BaseModel):
     pass_ask_phone: bool = False
     pass_ask_email: bool = False
     pass_max_accumulate: int | None = Field(default=None, ge=1)
-    pass_expiry_minutes: int = Field(default=30, ge=5, le=10080)
+    pass_expiry_hours: int = Field(default=24, ge=1, le=720)
 
 
 class MembershipPlanUpdate(BaseModel):
@@ -38,7 +38,7 @@ class MembershipPlanUpdate(BaseModel):
     pass_ask_phone: bool | None = None
     pass_ask_email: bool | None = None
     pass_max_accumulate: int | None = Field(default=None, ge=1)
-    pass_expiry_minutes: int | None = Field(default=None, ge=5, le=10080)
+    pass_expiry_hours: int | None = Field(default=None, ge=1, le=720)
 
 
 class MembershipPlanRead(BaseModel):
@@ -60,7 +60,7 @@ class MembershipPlanRead(BaseModel):
     pass_ask_phone: bool = False
     pass_ask_email: bool = False
     pass_max_accumulate: int | None = None
-    pass_expiry_minutes: int = 30
+    pass_expiry_hours: int = 24
 
 
 class AssignMembershipRequest(BaseModel):
