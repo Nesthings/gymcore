@@ -16,6 +16,7 @@ extend-immutable-calls = [
     "app.api.deps.require_clinic_roles",
     "app.api.deps.require_roles",
     "app.api.deps.require_component",
+    "app.api.deps.require_gym_roles",
 ]
 
 [tool.ruff.format]
