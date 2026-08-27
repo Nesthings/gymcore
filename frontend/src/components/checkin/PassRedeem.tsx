@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
-import QrCamera from '@/components/checkin/QrCamera'
+import QrCamera, { requestCameraPermission } from '@/components/checkin/QrCamera'
 import { apiFetch } from '@/lib/api'
 
 function extractPassToken(decoded: string): string | null {
@@ -99,6 +99,11 @@ export function PassRedeem() {
 
   const openScanner = async () => {
     setCameraError(null)
+    const ok = await requestCameraPermission()
+    if (!ok) {
+      setCameraError('No se pudo acceder a la cámara. Revisa los permisos o pega el token.')
+      return
+    }
     setScannerOpen(true)
   }
 

@@ -1,12 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
+import QrScanner from 'qr-scanner'
+import workerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 import { Loader2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
-interface QrScannerLike {
-  start: () => Promise<void>
-  stop: () => void
-  destroy: () => void
+// qr-scanner carga su worker calculando la URL relativa a su propio módulo.
+// Con Vite (dev/build) esa URL no existe, así que se fija explícitamente con
+// un import `?url` para que Vite emita y sirva el worker correctamente.
+QrScanner.WORKER_PATH = workerPath
+
+/** Pide el permiso de cámara DENTRO del gesto del usuario (clic). */
+export async function requestCameraPermission(): Promise<boolean> {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) return false
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false,
+    })
+    stream.getTracks().forEach((track) => track.stop())
+    return true
+  } catch {
+    return false
+  }
 }
 
 function QrCamera({
@@ -22,32 +38,32 @@ function QrCamera({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [busy, setBusy] = useState(true)
+  // Refs estables: el efecto de la cámara se ejecuta UNA vez; los callbacks se
+  // actualizan en un efecto aparte (no durante el render) para no reiniciar.
+  const resultRef = useRef(onResult)
+  const errorRef = useRef(onError)
+  useEffect(() => {
+    resultRef.current = onResult
+    errorRef.current = onError
+  }, [onResult, onError])
 
   useEffect(() => {
-    let scanner: QrScannerLike | null = null
+    let scanner: QrScanner | null = null
     let cancelled = false
 
     const boot = async () => {
       try {
-        const mod = await import('qr-scanner')
-        const QrScannerClass = (mod.default ?? mod) as {
-          hasCamera: () => Promise<boolean>
-          new (
-            video: HTMLVideoElement,
-            onDecode: (result: string) => void,
-          ): QrScannerLike
-        }
-        const hasCamera = await QrScannerClass.hasCamera()
+        const hasCamera = await QrScanner.hasCamera()
         if (!hasCamera) throw new Error('Este dispositivo no tiene cámara disponible')
         if (cancelled || !videoRef.current) return
-        scanner = new QrScannerClass(videoRef.current, (result) => {
-          onResult(result)
+        scanner = new QrScanner(videoRef.current, (result) => {
+          resultRef.current(result)
         })
         await scanner.start()
         if (!cancelled) setBusy(false)
       } catch (err) {
         if (!cancelled) {
-          onError(err instanceof Error ? err.message : 'No se pudo iniciar la cámara')
+          errorRef.current(err instanceof Error ? err.message : 'No se pudo iniciar la cámara')
         }
       }
     }
@@ -58,7 +74,7 @@ function QrCamera({
       scanner?.stop()
       scanner?.destroy()
     }
-  }, [onResult, onError])
+  }, [])
 
   return (
     <div className="space-y-3">

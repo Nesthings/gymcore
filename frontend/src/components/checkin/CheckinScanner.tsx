@@ -5,7 +5,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { useToast } from '@/components/ui/toast'
-import QrCamera from '@/components/checkin/QrCamera'
+import QrCamera, { requestCameraPermission } from '@/components/checkin/QrCamera'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -149,6 +149,16 @@ export function CheckinScanner({
     setScanMode(false)
   }, [])
 
+  const startScan = useCallback(async () => {
+    setCameraError(null)
+    const ok = await requestCameraPermission()
+    if (!ok) {
+      setCameraError('No se pudo acceder a la cámara. Revisa los permisos o busca al socio por nombre.')
+      return
+    }
+    setScanMode(true)
+  }, [])
+
   return (
     <div className="space-y-4">
       {success ? (
@@ -176,7 +186,7 @@ export function CheckinScanner({
             >
               Registrar otro
             </Button>
-            <Button size="sm" onClick={() => setScanMode(true)}>
+            <Button size="sm" onClick={startScan}>
               <ScanLine /> Escanear QR
             </Button>
           </div>
@@ -201,10 +211,7 @@ export function CheckinScanner({
             />
             <Button
               variant="outline"
-              onClick={() => {
-                setCameraError(null)
-                setScanMode(true)
-              }}
+              onClick={startScan}
             >
               <QrCode /> Escanear QR
             </Button>
