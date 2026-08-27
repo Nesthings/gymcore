@@ -372,3 +372,65 @@ def test_product_crud_flow(db_session, make_gym):
         raise AssertionError("debería lanzar 404 tras eliminar")
     except HTTPException as exc:
         assert exc.status_code == 404
+
+
+# --------------------------------------------------------------------------
+# Módulo de ventas: crear venta, descontar stock y estadísticas
+# --------------------------------------------------------------------------
+
+
+def test_sale_flow_decrements_stock_and_stats(db_session, make_gym):
+    from types import SimpleNamespace
+
+    from app.api.products import create_product
+    from app.api.sales import create_sale, sales_stats
+    from app.models import Sale, SaleProduct, User
+    from app.schemas.product import ProductCreate
+    from app.schemas.sale import SaleCreate, SaleItemCreate
+
+    gym, _ = make_gym()
+    staff = User(
+        gym_id=gym.id,
+        role="admin",
+        full_name="Cajero Test",
+        email="cajero@test.com",
+        password_hash="x",
+    )
+    db_session.add(staff)
+    db_session.commit()
+    ctx = SimpleNamespace(
+        gym={"id": gym.id},
+        user=SimpleNamespace(sub=str(staff.id)),
+    )
+
+    product = create_product(
+        ProductCreate(
+            name="Shaker 600 ml", category="Accesorios", price=199.0, stock_quantity=10
+        ),
+        ctx,
+        db_session,
+    )
+    assert product.stock_quantity == 10
+
+    sale = create_sale(
+        SaleCreate(
+            payment_method="cash",
+            items=[SaleItemCreate(product_id=product.id, quantity=3)],
+        ),
+        ctx,
+        db_session,
+    )
+    assert sale.total == 597.0
+    assert sale.item_count == 1
+
+    row = db_session.get(SaleProduct, product.id)
+    assert row.stock_quantity == 7
+
+    sales_rows = db_session.query(Sale).count()
+    assert sales_rows == 1
+
+    stats = sales_stats(ctx, db_session, days=30)
+    assert stats["totales"]["ventas"] == 1
+    assert stats["totales"]["ingresos"] == 597.0
+    assert stats["top_productos"][0]["name"] == "Shaker 600 ml"
+    assert stats["top_productos"][0]["unidades"] == 3

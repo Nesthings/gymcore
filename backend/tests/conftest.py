@@ -61,8 +61,8 @@ def clean_tables(_database):
                 "TRUNCATE audit_log, internal_notifications, outbound_notifications, "
                 "smart_alerts, smart_alert_rules, checkins, payments, "
                 "member_memberships, leads, members, membership_plans, "
-                "sale_products, user_component_permissions, users, "
-                "gym_subscription_events, gym_invites, gym_branches, gyms "
+                "sale_products, sale_items, sales, user_component_permissions, "
+                "users, gym_subscription_events, gym_invites, gym_branches, gyms "
                 "RESTART IDENTITY CASCADE"
             )
         )

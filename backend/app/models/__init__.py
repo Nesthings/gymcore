@@ -12,6 +12,7 @@ from app.models.notification import InternalNotification, OutboundNotification
 from app.models.payment import Payment
 from app.models.post import GymPost
 from app.models.product import SaleProduct
+from app.models.sale import PAYMENT_METHODS, Sale, SaleItem
 from app.models.smart_alert import SmartAlert, SmartAlertRule
 from app.models.staff import STAFF_ROLES, User, UserComponentPermission
 from app.models.suggestion import GymSuggestion
@@ -40,7 +41,10 @@ __all__ = [
     "PASS_STATUSES",
     "PASS_TYPES",
     "Payment",
+    "PAYMENT_METHODS",
     "STAFF_ROLES",
+    "Sale",
+    "SaleItem",
     "SaleProduct",
     "SmartAlert",
     "SmartAlertRule",

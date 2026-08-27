@@ -139,8 +139,8 @@ export function ShareDialog({
 
           {share && absolute && (
             <>
-              <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row">
-                <div className="shrink-0 rounded-lg border border-border bg-white p-2">
+              <div className="flex flex-col items-stretch gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center">
+                <div className="shrink-0 self-center rounded-lg border border-border bg-white p-2">
                   {qr ? (
                     <img src={qr} alt={`QR de ${memberName}`} className="size-44" />
                   ) : (
@@ -157,7 +157,7 @@ export function ShareDialog({
                       year: 'numeric',
                     })}
                   </p>
-                  <p className="truncate rounded-md border border-border bg-muted/40 px-2 py-1.5 font-mono text-xs text-foreground">
+                  <p className="break-all rounded-md border border-border bg-muted/40 px-2 py-1.5 font-mono text-xs text-foreground">
                     {absolute}
                   </p>
                   <div className="flex flex-wrap gap-2">

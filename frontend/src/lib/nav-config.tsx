@@ -12,6 +12,7 @@ const DEFAULT_PINNED = [
   'checkin',
   'crm',
   'productos',
+  'ventas',
   'inteligencia',
   'configuracion',
   'auditoria',

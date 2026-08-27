@@ -8,8 +8,10 @@ import {
   GripVertical,
   PanelTop,
   ScanLine,
+  ShoppingCart,
   Sparkles,
   TrendingDown,
+  UserPlus,
   Users,
   Wallet,
   X,
@@ -18,6 +20,8 @@ import {
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DashboardChart } from '@/components/dashboards/DashboardChart'
 import { DashboardTray } from '@/components/dashboards/DashboardTray'
+import { MemberFormDialog } from '@/components/members/MemberFormDialog'
+import { NewSaleDialog } from '@/components/sales/NewSaleDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ErrorState } from '@/components/ui/error-state'
@@ -46,7 +50,7 @@ const SECTION_LABELS: Record<SectionId, string> = {
 const SECTIONS_KEY_PREFIX = 'gymcore_dashboard_sections_'
 
 // Orden de las tarjetas del Módulo "Módulos" en el Inicio (el resto va después).
-const MODULE_CARD_ORDER = ['socios', 'membresias', 'checkin', 'finanzas', 'crm', 'productos']
+const MODULE_CARD_ORDER = ['socios', 'membresias', 'checkin', 'finanzas', 'crm', 'productos', 'ventas']
 
 type Period = 'day' | 'week' | 'month'
 
@@ -183,6 +187,8 @@ export function Dashboard() {
   const [dashData, setDashData] = useState<Record<string, unknown>>({})
   const [dashError, setDashError] = useState<string | null>(null)
   const [period, setPeriod] = useState<Period>('week')
+  const [memberFormOpen, setMemberFormOpen] = useState(false)
+  const [saleOpen, setSaleOpen] = useState(false)
 
   const periodHint =
     period === 'day' ? 'hoy' : period === 'week' ? 'últimos 7 días' : 'últimos 30 días'
@@ -357,17 +363,13 @@ export function Dashboard() {
       </div>
 
       <div className="mb-6 flex flex-col gap-2 sm:flex-row">
-        <Button asChild variant="success" size="xl" className="w-full sm:w-auto">
-          <Link to="/checkin">
-            <ScanLine className="size-5" aria-hidden="true" />
-            Check-in de socios
-          </Link>
+        <Button variant="success" size="xl" className="w-full sm:w-auto" onClick={() => setMemberFormOpen(true)}>
+          <UserPlus className="size-5" aria-hidden="true" />
+          Nuevo socio
         </Button>
-        <Button asChild variant="soft" size="xl" className="w-full sm:w-auto">
-          <Link to="/socios">
-            <Users className="size-5" aria-hidden="true" />
-            Nuevo socio
-          </Link>
+        <Button variant="soft" size="xl" className="w-full sm:w-auto" onClick={() => setSaleOpen(true)}>
+          <ShoppingCart className="size-5" aria-hidden="true" />
+          Nueva venta
         </Button>
       </div>
 
@@ -608,6 +610,14 @@ export function Dashboard() {
         <Dumbbell className="size-3.5" aria-hidden="true" />
         Los datos del dashboard se actualizan según la sucursal seleccionada arriba.
       </p>
+
+      <MemberFormDialog
+        open={memberFormOpen}
+        member={null}
+        onOpenChange={setMemberFormOpen}
+        onSaved={() => setMemberFormOpen(false)}
+      />
+      <NewSaleDialog open={saleOpen} onOpenChange={setSaleOpen} onSaved={() => undefined} />
     </AppLayout>
   )
 }

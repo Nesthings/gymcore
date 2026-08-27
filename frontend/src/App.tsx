@@ -50,6 +50,7 @@ const SetupWizard = lazy(() =>
 const Sugerencias = lazy(() =>
   import('@/pages/Sugerencias').then((m) => ({ default: m.Sugerencias })),
 )
+const Ventas = lazy(() => import('@/pages/Ventas').then((m) => ({ default: m.Ventas })))
 
 function RouteFallback() {
   return (
@@ -152,6 +153,14 @@ function App() {
                       element={
                         <ProtectedRoute component="productos">
                           <Products />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/ventas"
+                      element={
+                        <ProtectedRoute component="ventas">
+                          <Ventas />
                         </ProtectedRoute>
                       }
                     />

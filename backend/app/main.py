@@ -28,6 +28,7 @@ from app.api import (
     posts,
     products,
     risk,
+    sales,
     suggestions,
     users,
     whatsapp,
@@ -98,6 +99,7 @@ app.include_router(posts.router, prefix="/api/v1")
 app.include_router(products.router, prefix="/api/v1")
 app.include_router(passes.router, prefix="/api/v1")
 app.include_router(risk.router, prefix="/api/v1")
+app.include_router(sales.router, prefix="/api/v1")
 app.include_router(suggestions.router, prefix="/api/v1")
 app.include_router(dashboards.router, prefix="/api/v1")
 app.include_router(dashboards.summary_router, prefix="/api/v1")
