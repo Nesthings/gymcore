@@ -7,7 +7,7 @@ Registra la venta de productos del catálogo, descuenta el stock real de
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import CurrentGym, get_current_gym, require_component, require_gym_roles
@@ -51,47 +51,66 @@ def sales_stats(
     since = text(f"now() - interval '{days} days'")
 
     # Totales del periodo
-    totals = db.execute(
-        text(
-            "SELECT COUNT(*) AS total, COALESCE(SUM(total), 0) AS ingresos, "
-            "COALESCE(AVG(total), 0) AS ticket_promedio "
-            "FROM sales WHERE gym_id = :gid AND created_at >= " + str(since)
-        ),
-        {"gid": gid},
-    ).mappings().first()
+    totals = (
+        db.execute(
+            text(
+                "SELECT COUNT(*) AS total, COALESCE(SUM(total), 0) AS ingresos, "
+                "COALESCE(AVG(total), 0) AS ticket_promedio "
+                "FROM sales WHERE gym_id = :gid AND created_at >= " + str(since)
+            ),
+            {"gid": gid},
+        )
+        .mappings()
+        .first()
+    )
 
     # Serie de ingresos por día
-    daily = db.execute(
-        text(
-            "SELECT date_trunc('day', created_at)::date AS fecha, "
-            "COUNT(*) AS ventas, COALESCE(SUM(total), 0) AS ingresos "
-            "FROM sales WHERE gym_id = :gid AND created_at >= " + str(since)
-            + " GROUP BY fecha ORDER BY fecha"
-        ),
-        {"gid": gid},
-    ).mappings().all()
+    daily = (
+        db.execute(
+            text(
+                "SELECT date_trunc('day', created_at)::date AS fecha, "
+                "COUNT(*) AS ventas, COALESCE(SUM(total), 0) AS ingresos "
+                "FROM sales WHERE gym_id = :gid AND created_at >= "
+                + str(since)
+                + " GROUP BY fecha ORDER BY fecha"
+            ),
+            {"gid": gid},
+        )
+        .mappings()
+        .all()
+    )
 
     # Top productos vendidos
-    top = db.execute(
-        text(
-            "SELECT si.name, SUM(si.quantity) AS unidades, SUM(si.line_total) AS ingresos "
-            "FROM sale_items si JOIN sales s ON s.id = si.sale_id "
-            "WHERE s.gym_id = :gid AND s.created_at >= " + str(since)
-            + " GROUP BY si.name ORDER BY ingresos DESC LIMIT 10"
-        ),
-        {"gid": gid},
-    ).mappings().all()
+    top = (
+        db.execute(
+            text(
+                "SELECT si.name, SUM(si.quantity) AS unidades, SUM(si.line_total) AS ingresos "
+                "FROM sale_items si JOIN sales s ON s.id = si.sale_id "
+                "WHERE s.gym_id = :gid AND s.created_at >= "
+                + str(since)
+                + " GROUP BY si.name ORDER BY ingresos DESC LIMIT 10"
+            ),
+            {"gid": gid},
+        )
+        .mappings()
+        .all()
+    )
 
     # Por método de pago
-    methods = db.execute(
-        text(
-            "SELECT COALESCE(NULLIF(payment_method, ''), 'otro') AS metodo, "
-            "COUNT(*) AS ventas, COALESCE(SUM(total), 0) AS ingresos "
-            "FROM sales WHERE gym_id = :gid AND created_at >= " + str(since)
-            + " GROUP BY metodo ORDER BY ingresos DESC"
-        ),
-        {"gid": gid},
-    ).mappings().all()
+    methods = (
+        db.execute(
+            text(
+                "SELECT COALESCE(NULLIF(payment_method, ''), 'otro') AS metodo, "
+                "COUNT(*) AS ventas, COALESCE(SUM(total), 0) AS ingresos "
+                "FROM sales WHERE gym_id = :gid AND created_at >= "
+                + str(since)
+                + " GROUP BY metodo ORDER BY ingresos DESC"
+            ),
+            {"gid": gid},
+        )
+        .mappings()
+        .all()
+    )
 
     return {
         "periodo_dias": days,
@@ -101,7 +120,11 @@ def sales_stats(
             "ticket_promedio": float(totals["ticket_promedio"]) if totals else 0.0,
         },
         "serie_diaria": [
-            {"fecha": r["fecha"].isoformat(), "ventas": r["ventas"], "ingresos": float(r["ingresos"])}
+            {
+                "fecha": r["fecha"].isoformat(),
+                "ventas": r["ventas"],
+                "ingresos": float(r["ingresos"]),
+            }
             for r in daily
         ],
         "top_productos": [
@@ -142,9 +165,7 @@ def create_sale(
     items: list[SaleItem] = []
     for p in body.items:
         product = db.scalar(
-            select(SaleProduct).where(
-                SaleProduct.id == p.product_id, SaleProduct.gym_id == gym_id
-            )
+            select(SaleProduct).where(SaleProduct.id == p.product_id, SaleProduct.gym_id == gym_id)
         )
         if product is None:
             raise HTTPException(

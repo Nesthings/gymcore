@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
+// Valores por entorno (cada máquina puede sobrescribirlos):
+//   VITE_PORT  — puerto del dev server (default 5173)
+//   VITE_API_TARGET — backend al que proxyea /api (default 8002)
+const PORT = Number(process.env.VITE_PORT ?? 5173)
+const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:8002'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -12,14 +18,14 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5179,
+    port: PORT,
     proxy: {
       '/api': {
-        target: 'http://localhost:8009',
+        target: API_TARGET,
         changeOrigin: true,
       },
       '/media': {
-        target: 'http://localhost:8009',
+        target: API_TARGET,
         changeOrigin: true,
       },
     },
