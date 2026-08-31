@@ -27,6 +27,18 @@ function readStored(key: string): Theme {
   return 'light'
 }
 
+// Favicon e icono de pestaña: cambian según el tema activo.
+function applyFavicon(theme: Theme) {
+  const href = theme === 'dark' ? '/logo-gymcore-dark.png' : '/logo-gymcore-light.png'
+  document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]').forEach((el) => {
+    el.setAttribute('href', href)
+  })
+  const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
+  if (apple) apple.href = href
+  const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+  if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#1a1917' : '#f5f4f1')
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const key = themeKey(user?.sub)
@@ -52,6 +64,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignorar
     }
+    applyFavicon(theme)
   }, [theme, key])
 
   const value: ThemeContextValue = {

@@ -1,5 +1,3 @@
-import { Dumbbell } from 'lucide-react'
-
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
@@ -36,12 +34,11 @@ export function AuthLayout({
       />
 
       <div className="relative flex flex-col items-center gap-3 text-center">
-        <div className="flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-card">
-          <Dumbbell className="size-8 text-primary" aria-hidden="true" />
-        </div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-          GymCore
-        </h1>
+        <img
+          src={isDark ? '/logo-gymcore-dark.png' : '/logo-gymcore-light.png'}
+          alt="GymCore"
+          className="w-28 sm:w-32"
+        />
       </div>
 
       <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-card">

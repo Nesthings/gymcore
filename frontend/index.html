@@ -2,11 +2,27 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/logo-gymcore-light.png" id="favicon" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/logo-gymcore-dark.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1a1917" />
+    <meta name="theme-color" content="#1a1917" id="theme-color" />
+    <script>
+      ;(function () {
+        var fav = document.getElementById('favicon')
+        var tc = document.getElementById('theme-color')
+        if (fav) {
+          var theme = 'light'
+          try {
+            var stored = localStorage.getItem('gymcore_theme')
+            if (stored === 'dark' || stored === 'light') theme = stored
+          } catch (e) {}
+          var dark = theme === 'dark'
+          fav.setAttribute('href', dark ? '/logo-gymcore-dark.png' : '/logo-gymcore-light.png')
+          if (tc) tc.setAttribute('content', dark ? '#1a1917' : '#f5f4f1')
+        }
+      })()
+    </script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>GymCore — Gestión de gimnasios</title>
