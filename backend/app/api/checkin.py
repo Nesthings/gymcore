@@ -1,6 +1,8 @@
 """Check-in por QR/nombre — registra la entrada del socio."""
 
+import uuid
 from datetime import UTC, datetime
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, text
@@ -12,6 +14,37 @@ from app.models import Checkin, Member, MemberMembership
 from app.schemas.checkin import CheckinRequest, CheckinResult, TodayCheckinRead
 
 router = APIRouter(tags=["checkin"])
+
+
+def _resolve_member_from_qr(db: Session, gym_id: str, qr_token: str) -> Member | None:
+    """Resuelve un socio a partir del contenido del QR (robusto, sin 500).
+
+    Acepta:
+    - `gymcore:member:<uuid>`
+    - URL/relativa con `?token=<share_token>` (p. ej. `/m?token=...`)
+    - `token=<share_token>` suelto
+    - un UUID crudo (id de socio)
+    - un share token crudo (token de invitación del portal)
+    """
+    raw = (qr_token or "").strip()
+    if raw.startswith("gymcore:member:"):
+        raw = raw[len("gymcore:member:") :].strip()
+    elif raw.startswith(("http://", "https://", "/m?")):
+        try:
+            params = parse_qs(urlparse(raw).query)
+            if params.get("token"):
+                raw = params["token"][0].strip()
+        except Exception:  # noqa: BLE001 - URL malformada: seguir con el valor crudo
+            pass
+    elif raw.startswith("token="):
+        raw = raw[len("token=") :].strip()
+    if not raw:
+        return None
+    try:
+        uid = uuid.UUID(raw)
+        return db.scalar(select(Member).where(Member.id == uid, Member.gym_id == gym_id))
+    except ValueError:
+        return db.scalar(select(Member).where(Member.share_token == raw, Member.gym_id == gym_id))
 
 
 def _member_or_404(db: Session, gym_id: str, member_id: str) -> Member:
@@ -29,12 +62,10 @@ def checkin(
 ) -> CheckinResult:
     member_id = body.member_id
     if not member_id and body.qr_token:
-        try:
-            member_id = body.qr_token.split(":")[-1]
-        except Exception:  # noqa: BLE001
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="QR inválido"
-            ) from None
+        resolved = _resolve_member_from_qr(db, str(ctx.gym["id"]), body.qr_token)
+        if resolved is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Socio no encontrado")
+        member_id = str(resolved.id)
     if not member_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Indica member_id o qr_token"

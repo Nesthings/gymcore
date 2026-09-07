@@ -14,6 +14,42 @@ QrScanner.WORKER_PATH = workerPath
 const DEBOUNCE_MS = 120_000 // 2 min: evita duplicados si el QR queda frente a la cámara
 const PREF_KEY = 'gymcore_scanner_enabled'
 
+function tokenFromUrl(value: string): string | null {
+  try {
+    const u = new URL(value, window.location.origin)
+    return u.searchParams.get('token')?.trim() ?? null
+  } catch {
+    return null
+  }
+}
+
+/** Clasifica el contenido de un QR en socio (check-in) o pase (canje). */
+function classifyQr(value: string): { kind: 'member' | 'pass'; key: string } | null {
+  const v = value.trim()
+  if (!v) return null
+  if (v.startsWith('gymcore:pass:')) {
+    return { kind: 'pass', key: v.slice('gymcore:pass:'.length).trim() }
+  }
+  if (v.startsWith('gymcore:member:')) {
+    return { kind: 'member', key: v.slice('gymcore:member:'.length).trim() }
+  }
+  // URL del pase de invitado: /g?token=...
+  if (v.startsWith('/g?') || v.includes('/g?')) {
+    const t = tokenFromUrl(v)
+    return t ? { kind: 'pass', key: t } : null
+  }
+  // URL del portal del socio: /m?token=...
+  if (v.startsWith('/m?') || v.includes('/m?')) {
+    const t = tokenFromUrl(v)
+    return t ? { kind: 'member', key: t } : null
+  }
+  if (v.startsWith('token=')) {
+    return { kind: 'member', key: v.slice('token='.length).trim() }
+  }
+  // valor crudo: asumir socio (id o share token)
+  return { kind: 'member', key: v }
+}
+
 export interface ScanResult {
   type: 'member' | 'pass'
   ok: boolean
@@ -59,28 +95,19 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
   // Procesa un QR decodificado: socio -> check-in, pase -> canje.
   const process = useCallback(
     async (decoded: string) => {
-      const value = decoded.trim()
-      let kind: 'member' | 'pass'
-      let payload: string
-      if (value.startsWith('gymcore:member:')) {
-        kind = 'member'
-        payload = value.slice('gymcore:member:'.length)
-      } else if (value.startsWith('gymcore:pass:')) {
-        kind = 'pass'
-        payload = value.slice('gymcore:pass:'.length)
-      } else {
-        return // QR ajeno al gimnasio: ignorar
-      }
-      if (!payload) return
+      const cls = classifyQr(decoded)
+      if (!cls) return
 
       const now = Date.now()
-      const last = debounceRef.current.get(payload)
+      const last = debounceRef.current.get(cls.key)
       if (last && now - last < DEBOUNCE_MS) return
-      debounceRef.current.set(payload, now)
+      debounceRef.current.set(cls.key, now)
       if (debounceRef.current.size > 500) debounceRef.current.clear()
 
       try {
-        if (kind === 'member') {
+        if (cls.kind === 'member') {
+          // Se manda el contenido completo; el backend resuelve UUID o share
+          // token sin romper (y nunca 500).
           const res = await apiFetch<{
             ok: boolean
             member_name: string
@@ -106,7 +133,7 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
         } else {
           const res = await apiFetch<{ guest_name: string; inviter_name?: string | null }>('/passes/redeem', {
             method: 'POST',
-            body: JSON.stringify({ token: payload }),
+            body: JSON.stringify({ token: cls.key }),
           })
           setLastResult({ type: 'pass', ok: true, guest: res.guest_name, at: now })
           toast({

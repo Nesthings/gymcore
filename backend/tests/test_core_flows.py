@@ -278,6 +278,32 @@ def test_goal_progress_peso(db_session, make_gym, make_member):
     assert 0 < prog["progress"] < 1
 
 
+def test_checkin_qr_resolver_never_500(db_session, make_gym, make_member):
+    """El check-in por QR debe resolver UUID, share token o URL sin romper."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.api.checkin import _resolve_member_from_qr
+
+    gym, _ = make_gym()
+    member = make_member(gym)
+    member.share_token = "share-yolanda"
+    member.share_expires_at = datetime.now(UTC) + timedelta(days=30)
+    db_session.commit()
+    gid = str(gym.id)
+
+    assert _resolve_member_from_qr(db_session, gid, str(member.id)) is not None
+    assert _resolve_member_from_qr(db_session, gid, f"gymcore:member:{member.id}") is not None
+    assert _resolve_member_from_qr(db_session, gid, "share-yolanda") is not None
+    assert _resolve_member_from_qr(db_session, gid, "/m?token=share-yolanda") is not None
+    assert (
+        _resolve_member_from_qr(db_session, gid, "https://gym.example/m?token=share-yolanda")
+        is not None
+    )
+    assert _resolve_member_from_qr(db_session, gid, "token=share-yolanda") is not None
+    assert _resolve_member_from_qr(db_session, gid, "/m?token=no-existe") is None
+    assert _resolve_member_from_qr(db_session, gid, "gymcore:member:no-es-uuid") is None
+
+
 def test_pass_generate_and_redeem(db_session, make_gym, make_member, make_plan, make_membership):
     from datetime import UTC, datetime, timedelta
 
@@ -404,9 +430,7 @@ def test_sale_flow_decrements_stock_and_stats(db_session, make_gym):
     )
 
     product = create_product(
-        ProductCreate(
-            name="Shaker 600 ml", category="Accesorios", price=199.0, stock_quantity=10
-        ),
+        ProductCreate(name="Shaker 600 ml", category="Accesorios", price=199.0, stock_quantity=10),
         ctx,
         db_session,
     )
