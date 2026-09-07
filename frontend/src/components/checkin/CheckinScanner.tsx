@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { useToast } from '@/components/ui/toast'
 import QrCamera, { requestCameraPermission } from '@/components/checkin/QrCamera'
+import { useScanner } from '@/lib/scanner'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,13 @@ export function CheckinScanner({
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState<CheckinResult | null>(null)
   const { toast } = useToast()
+  const { enabled: scannerEnabled } = useScanner()
+
+  // Si el lector continuo está activo, no abrimos el escáner manual (una sola
+  // cámara en uso).
+  useEffect(() => {
+    if (scannerEnabled) setScanMode(false)
+  }, [scannerEnabled])
 
   useEffect(() => {
     if (!query.trim() || selected) {
@@ -186,9 +194,11 @@ export function CheckinScanner({
             >
               Registrar otro
             </Button>
-            <Button size="sm" onClick={startScan}>
-              <ScanLine /> Escanear QR
-            </Button>
+            {!scannerEnabled && (
+              <Button size="sm" onClick={startScan}>
+                <ScanLine /> Escanear QR
+              </Button>
+            )}
           </div>
         </div>
       ) : scanMode ? (
@@ -209,13 +219,25 @@ export function CheckinScanner({
               onClear={clear}
               placeholder="Buscar socio por nombre o correo…"
             />
-            <Button
-              variant="outline"
-              onClick={startScan}
-            >
-              <QrCode /> Escanear QR
-            </Button>
+            {!scannerEnabled && (
+              <Button
+                variant="outline"
+                onClick={startScan}
+              >
+                <QrCode /> Escanear QR
+              </Button>
+            )}
           </div>
+
+          {scannerEnabled && (
+            <p className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-sm text-success">
+              <span className="relative flex size-2.5 shrink-0" aria-hidden="true">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-success" />
+              </span>
+              Lector automático activo: escanea el QR del socio y se registra solo.
+            </p>
+          )}
 
           {cameraError && (
             <p className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-warning">

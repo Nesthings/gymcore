@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
+import { useScanner } from '@/lib/scanner'
 import { apiFetch } from '@/lib/api'
 
 interface TodayCheckin {
@@ -39,6 +40,12 @@ export function TodayCheckins({
   const [tick, setTick] = useState(0)
   const [closingId, setClosingId] = useState<string | null>(null)
   const { toast } = useToast()
+  const { lastResult } = useScanner()
+
+  // Refrescar cuando el lector continuo registra un check-in/pase.
+  useEffect(() => {
+    if (lastResult) setTick((t) => t + 1)
+  }, [lastResult])
 
   useEffect(() => {
     let cancelled = false
