@@ -253,9 +253,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <PanelLeftClose className="size-4" aria-hidden="true" />
               )}
             </button>
-            {pathname !== '/' && (
+            {pathname !== '/dashboard' && (
               <NavLink
-                to="/"
+                to="/dashboard"
                 className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-card transition-colors hover:bg-accent hover:text-foreground active:scale-[0.98]"
                 title="Volver al inicio"
                 aria-label="Volver al inicio"

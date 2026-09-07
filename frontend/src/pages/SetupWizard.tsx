@@ -329,7 +329,7 @@ export function SetupWizard() {
           body: JSON.stringify({ setup_completed: true }),
         })
         await refresh()
-        navigate('/', { replace: true })
+        navigate('/dashboard', { replace: true })
         return
       }
       setStep((s) => s + 1)

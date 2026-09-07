@@ -31,7 +31,7 @@ export interface ModuleMeta {
 // Catálogo completo de módulos del panel del gimnasio.
 // Se usa en el sidebar (AppLayout) y en las tarjetas de "Módulos" del Inicio.
 export const NAV_ROUTES: NavRoute[] = [
-  { to: '/', label: 'Dashboard', component: 'dashboard', end: true },
+  { to: '/dashboard', label: 'Dashboard', component: 'dashboard', end: true },
   { to: '/socios', label: 'Socios', component: 'socios' },
   { to: '/membresias', label: 'Membresías', component: 'membresias' },
   { to: '/pagos', label: 'Pagos', component: 'finanzas' },
@@ -140,5 +140,12 @@ export function pageBgForPath(pathname: string): string | undefined {
 
 export function firstAllowedRoute(hasComponent: (c: string) => boolean): string {
   const route = NAV_ROUTES.find((r) => hasComponent(r.component))
-  return route?.to ?? '/'
+  return route?.to ?? '/dashboard'
+}
+
+/** Ruta de inicio según el rol (la raíz '/' ahora es el login). */
+export function homeForRole(role?: string | null): string {
+  if (role === 'super-admin') return '/platform'
+  if (role === 'admin' || role === 'recepcion' || role === 'coach') return '/dashboard'
+  return '/login'
 }

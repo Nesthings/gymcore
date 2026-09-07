@@ -92,8 +92,9 @@ function App() {
                       }
                     />
 
+                    <Route path="/" element={<Login />} />
                     <Route
-                      path="/"
+                      path="/dashboard"
                       element={
                         <ProtectedRoute component="dashboard">
                           <Dashboard />

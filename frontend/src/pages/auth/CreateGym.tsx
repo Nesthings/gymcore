@@ -46,7 +46,7 @@ export function CreateGym() {
         }),
       })
       login(res.access_token)
-      navigate('/', { replace: true })
+      navigate('/setup', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear el gimnasio')
     } finally {

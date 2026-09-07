@@ -8,9 +8,9 @@ import { firstAllowedRoute } from '@/lib/nav'
 
 const ROLE_HOME: Record<string, string> = {
   'super-admin': '/platform',
-  admin: '/',
-  recepcion: '/',
-  coach: '/',
+  admin: '/dashboard',
+  recepcion: '/dashboard',
+  coach: '/dashboard',
 }
 
 const STAFF_ROLES = ['admin', 'recepcion', 'coach']
