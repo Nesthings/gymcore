@@ -9,6 +9,7 @@ import { NavConfigProvider } from '@/lib/nav-config'
 import { PermissionsProvider } from '@/lib/permissions'
 import { SetupProvider } from '@/lib/setup'
 import { GymMetaProvider } from '@/lib/gym-meta'
+import { ScannerProvider } from '@/lib/scanner'
 
 const CreateGym = lazy(() => import('@/pages/auth/CreateGym').then((m) => ({ default: m.CreateGym })))
 const ForgotPassword = lazy(() =>
@@ -72,7 +73,8 @@ function App() {
             <GymMetaProvider>
               <NavConfigProvider>
                 <DashboardConfigProvider>
-                  <BrowserRouter>
+                  <ScannerProvider>
+                    <BrowserRouter>
                   <Suspense fallback={<RouteFallback />}>
                     <Routes>
                     <Route path="/login" element={<Login />} />
@@ -217,8 +219,9 @@ function App() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                   </Suspense>
-                </BrowserRouter>
-              </DashboardConfigProvider>
+                  </BrowserRouter>
+                  </ScannerProvider>
+                </DashboardConfigProvider>
             </NavConfigProvider>
             </GymMetaProvider>
           </SetupProvider>

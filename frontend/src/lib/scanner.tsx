@@ -32,19 +32,7 @@ interface ScannerValue {
 
 const ScannerContext = createContext<ScannerValue | null>(null)
 
-async function requestCameraPermission(): Promise<boolean> {
-  try {
-    if (!navigator.mediaDevices?.getUserMedia) return false
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' },
-      audio: false,
-    })
-    stream.getTracks().forEach((track) => track.stop())
-    return true
-  } catch {
-    return false
-  }
-}
+const STAFF_ROLES = ['admin', 'recepcion', 'coach']
 
 export function ScannerProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -171,8 +159,9 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     if (activating) return
     setActivating(true)
     try {
-      const ok = await requestCameraPermission()
-      if (!ok) throw new Error('No se pudo acceder a la cámara. Revisa los permisos.')
+      // getUserMedia por sí solo dispara el prompt de permisos dentro del
+      // gesto del clic; no hacemos un probe previo (evita abrir/cerrar la
+      // cámara dos veces, que puede fallar en algunos navegadores).
       await start()
       setEnabled(true)
       try {
@@ -226,6 +215,7 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
   // Auto-inicio al cargar si la preferencia quedó activada (y el permiso ya
   // está concedido). Sin toast: si falla, el toggle queda OFF para un tap.
   useEffect(() => {
+    if (!user || !STAFF_ROLES.includes(user.role)) return
     let stored = false
     try {
       stored = localStorage.getItem(storageKey) === '1'
@@ -250,7 +240,7 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
       cancelled = true
       stopScanner()
     }
-  }, [storageKey, start, stopScanner])
+  }, [storageKey, user, start, stopScanner])
 
   return (
     <ScannerContext.Provider

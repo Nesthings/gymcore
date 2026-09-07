@@ -23,7 +23,6 @@ import { MODULE_META, NAV_ROUTES } from '@/lib/nav'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import { ScannerToggle } from '@/components/layout/ScannerToggle'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
-import { ScannerProvider } from '@/lib/scanner'
 import {
   Select,
   SelectContent,
@@ -168,7 +167,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <ScannerProvider>
     <div className="flex min-h-screen bg-background">
       {collapsed === false && (
         <div
@@ -382,6 +380,5 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 p-4 sm:p-6">{children}</div>
       </main>
     </div>
-    </ScannerProvider>
   )
 }
