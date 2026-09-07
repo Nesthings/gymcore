@@ -15,5 +15,7 @@ super_admins = Table(
     Column("photo_url", String(255)),
     Column("is_active", Boolean, nullable=False, server_default="true"),
     Column("last_login_at", DateTime(timezone=True)),
+    Column("totp_secret", Text),
+    Column("totp_enabled", Boolean, nullable=False, server_default="false"),
     Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
 )

@@ -35,6 +35,10 @@ class User(UUIDPkMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     reports_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    totp_secret: Mapped[str | None] = mapped_column(Text)
+    totp_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     is_visible_on_login: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )

@@ -42,6 +42,23 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
 
 
+TWOFA_CHALLENGE_EXPIRE_MINUTES = 5
+
+
+def create_twofa_challenge_token(subject: str, role: str = "super-admin") -> str:
+    """Token de corta duración que acredita el paso 1 del login (password OK)
+    y debe completarse con el código TOTP en el paso 2."""
+    expire = datetime.now(UTC) + timedelta(minutes=TWOFA_CHALLENGE_EXPIRE_MINUTES)
+    payload = {
+        "sub": subject,
+        "purpose": "2fa",
+        "role": role,
+        "exp": expire,
+        "iat": datetime.now(UTC),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
 class InvalidTokenError(ValueError):
     pass
 
