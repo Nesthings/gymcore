@@ -44,6 +44,22 @@ def create_gym(body: CreateGymRequest, db: Session = Depends(get_db)) -> CreateG
             detail="La invitación ha expirado",
         )
 
+    # Reclamación atómica de la invitación (evita que dos altas usen el mismo token).
+    claimed = db.execute(
+        text(
+            "UPDATE gym_invites SET status = 'used', used_at = now() "
+            "WHERE id = :iid AND status = 'pending'"
+        ),
+        {"iid": invite["id"]},
+    )
+    if claimed.rowcount == 0:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La invitación ya fue utilizada",
+        )
+    db.commit()
+
     email = body.admin_email.strip().lower()
     existing = db.execute(
         text("SELECT 1 FROM users WHERE LOWER(email) = :email"), {"email": email}
@@ -86,10 +102,6 @@ def create_gym(body: CreateGymRequest, db: Session = Depends(get_db)) -> CreateG
             "VALUES (:gid, 'trial_started', 'Alta inicial')"
         ),
         {"gid": gym.id},
-    )
-    db.execute(
-        text("UPDATE gym_invites SET status = 'used', used_at = now() WHERE id = :iid"),
-        {"iid": invite["id"]},
     )
     db.commit()
 

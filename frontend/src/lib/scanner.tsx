@@ -1,18 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import QrScanner from 'qr-scanner'
 import workerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 
 import { useToast } from '@/components/ui/toast'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { playBeep } from '@/lib/beep'
+import { playBeep, playCheckin, playCheckout } from '@/lib/beep'
 
 // qr-scanner carga su worker por una URL relativa que Vite no sirve; se fija
 // explícitamente con un import `?url` (documentado para bundlers).
 QrScanner.WORKER_PATH = workerPath
 
-const DEBOUNCE_MS = 120_000 // 2 min: evita duplicados si el QR queda frente a la cámara
+const DEBOUNCE_MS = 8_000 // 8s: evita duplicados si el QR queda frente a la cámara, sin sentirse "muerto"
 const PREF_KEY = 'gymcore_scanner_enabled'
+// Arranque por defecto para el staff: el lector continuo es un proceso de fondo.
+// Solo se apaga si el usuario lo desactiva explícitamente (se guarda la preferencia).
+const DEFAULT_ENABLED = true
 
 function tokenFromUrl(value: string): string | null {
   try {
@@ -73,14 +77,23 @@ const STAFF_ROLES = ['admin', 'recepcion', 'coach']
 export function ScannerProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { toast } = useToast()
+  const location = useLocation()
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const debounceRef = useRef<Map<string, number>>(new Map())
   const processRef = useRef<(decoded: string) => void>(() => {})
+  // ¿El lector fue encendido MANUALMENTE (toggle)? Si es así se mantiene al
+  // navegar; si fue auto-arrancado, se apaga al salir de /checkin (evita
+  // pedir permiso de cámara en páginas como la ficha del socio).
+  const manualRef = useRef(false)
   const [enabled, setEnabled] = useState(false)
   const [activating, setActivating] = useState(false)
   const [lastResult, setLastResult] = useState<ScanResult | null>(null)
+
+  // Excepción: en la ficha/credencial del socio NO se enciende la cámara
+  // (evita pedir el permiso al revisar la credencial del socio).
+  const isMemberDetail = /^\/socios\/[^/]+\/?$/.test(location.pathname)
 
   const storageKey = `${PREF_KEY}:${user?.sub ?? 'guest'}`
 
@@ -100,6 +113,10 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
 
       const now = Date.now()
       const last = debounceRef.current.get(cls.key)
+      // El QR suele permanecer frente a la cámara varios frames (decodes
+      // ~25/s). El primer decode ya procesó y mostró su toast; los repetidos
+      // se ignoran en SILENCIO: toastear cada uno llenaría la cola y expulsaría
+      // el resultado (la cola solo muestra 4 a la vez).
       if (last && now - last < DEBOUNCE_MS) return
       debounceRef.current.set(cls.key, now)
       if (debounceRef.current.size > 500) debounceRef.current.clear()
@@ -107,24 +124,29 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
       try {
         if (cls.kind === 'member') {
           // Se manda el contenido completo; el backend resuelve UUID o share
-          // token sin romper (y nunca 500).
+          // token sin romper (y nunca 500). El backend decide la acción:
+          // checkin / already_in (sesión activa reciente) / checkout.
           const res = await apiFetch<{
             ok: boolean
             member_name: string
             plan_active: boolean
+            action?: string
             message?: string
           }>('/checkin', { method: 'POST', body: JSON.stringify({ qr_token: decoded }) })
           setLastResult({ type: 'member', ok: res.ok, member: res.member_name, at: now })
           if (res.ok) {
-            if (res.message?.includes('sesión activa')) {
-              toast({ title: res.member_name, description: 'Ya está registrado (sesión activa)', variant: 'info' })
+            if (res.action === 'checkout') {
+              toast({ title: 'Salida registrada', description: res.member_name, variant: 'success' })
+              playCheckout()
+            } else if (res.action === 'already_in' || res.message?.includes('sesión activa')) {
+              toast({ title: res.member_name, description: 'Ya está dentro (sesión activa)', variant: 'info' })
               playBeep(660, 0.09)
             } else if (!res.plan_active) {
               toast({ title: res.member_name, description: res.message ?? 'Sin membresía activa', variant: 'warning' })
               playBeep(440, 0.16)
             } else {
               toast({ title: 'Check-in registrado', description: res.member_name, variant: 'success' })
-              playBeep()
+              playCheckin()
             }
           } else {
             toast({ title: 'Check-in no válido', description: res.message ?? 'El código no corresponde a un socio activo.', variant: 'warning' })
@@ -161,17 +183,10 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
 
   const start = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Cámara no disponible en este dispositivo')
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' },
-      audio: false,
-    })
-    streamRef.current = stream
-    if (!videoRef.current) {
-      stream.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-      throw new Error('No se pudo montar el video del lector')
-    }
-    videoRef.current.srcObject = stream
+    if (!videoRef.current) throw new Error('No se pudo montar el video del lector')
+    // NO abrimos un stream previo: QrScanner.start() abre su propia cámara.
+    // (Si el video ya tiene un stream, start() solo lo reproduce y detenerlo
+    // después apagaría la cámara — LED off, sin decodificación.)
     const scanner = new QrScanner(videoRef.current, (decoded) => processRef.current(decoded))
     scannerRef.current = scanner
     try {
@@ -184,6 +199,7 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
 
   const enable = useCallback(async () => {
     if (activating) return
+    manualRef.current = true
     setActivating(true)
     try {
       // getUserMedia por sí solo dispara el prompt de permisos dentro del
@@ -216,6 +232,7 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
   }, [activating, start, stopScanner, toast, storageKey])
 
   const disable = useCallback(() => {
+    manualRef.current = false
     stopScanner()
     setEnabled(false)
     try {
@@ -239,17 +256,27 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [enabled])
 
-  // Auto-inicio al cargar si la preferencia quedó activada (y el permiso ya
-  // está concedido). Sin toast: si falla, el toggle queda OFF para un tap.
+  // Auto-inicio para el staff en TODAS las páginas (proceso de fondo), con una
+  // única excepción: la ficha/credencial del socio (/socios/:id), donde la
+  // cámara se apaga para no pedir el permiso al revisar la credencial.
+  // Si el usuario lo encendió manualmente (toggle), se mantiene al navegar.
   useEffect(() => {
     if (!user || !STAFF_ROLES.includes(user.role)) return
-    let stored = false
-    try {
-      stored = localStorage.getItem(storageKey) === '1'
-    } catch {
-      // sin almacenamiento: se mantiene OFF
+    if (isMemberDetail) {
+      // Excepción: forzar apagado en la ficha del socio.
+      manualRef.current = false
+      stopScanner()
+      setEnabled(false)
+      return
     }
-    if (!stored) return
+    if (manualRef.current) return
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem(storageKey)
+    } catch {
+      // sin almacenamiento: se mantiene el default
+    }
+    if (stored === '0' || (!DEFAULT_ENABLED && stored !== '1')) return
     let cancelled = false
     ;(async () => {
       try {
@@ -265,22 +292,27 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     })()
     return () => {
       cancelled = true
-      stopScanner()
+      if (!manualRef.current) {
+        stopScanner()
+        setEnabled(false)
+      }
     }
-  }, [storageKey, user, start, stopScanner])
+  }, [isMemberDetail, storageKey, user, start, stopScanner])
 
   return (
     <ScannerContext.Provider
       value={{ enabled, activating, lastResult, enable, disable }}
     >
-      {/* El video vive off-screen (fuera de la vista) pero con tamaño real para
-          que qr-scanner pueda decodificar. */}
+      {/* El video vive invisible pero DENTRO del viewport y con resolución real
+      (640x480) para que el navegador lo pinte y qr-scanner decodifique frames
+      nítidos y rápido. Fuera del viewport (-9999px) algunos navegadores no lo
+      pintan y el lector queda ciego. */}
       <video
         ref={videoRef}
         muted
         playsInline
         aria-hidden="true"
-        className="pointer-events-none fixed -left-[9999px] top-0 h-40 w-40 opacity-0"
+        className="pointer-events-none fixed left-0 top-0 h-[480px] w-[640px] opacity-0"
       />
       {children}
     </ScannerContext.Provider>

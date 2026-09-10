@@ -15,9 +15,11 @@ from app.api import (
     checkin,
     create_gym,
     dashboards,
+    equipment,
     gyms,
     health,
     leads,
+    maintenance,
     member_portal,
     member_share,
     members,
@@ -30,6 +32,7 @@ from app.api import (
     risk,
     sales,
     suggestions,
+    support_tickets,
     users,
     whatsapp,
 )
@@ -57,9 +60,19 @@ async def lifespan(app: FastAPI):
                         logger.info("Riesgo: %s alertas críticas nuevas", created)
                 except Exception:  # noqa: BLE001
                     logger.exception("Barrido periódico de riesgo falló")
+                try:
+                    from app.api.maintenance import maintenance_sweep
+                    from app.db.session import SessionLocal
+
+                    with SessionLocal() as db:
+                        created = maintenance_sweep(db)
+                    if created:
+                        logger.info("Mantenimiento: %s notificaciones nuevas", created)
+                except Exception:  # noqa: BLE001
+                    logger.exception("Barrido periódico de mantenimiento falló")
 
         task = asyncio.create_task(_sweep())
-        logger.info("Barrido periódico de riesgo activado cada %ss", sweep_seconds)
+        logger.info("Barrido periódico de riesgo/mantenimiento activado cada %ss", sweep_seconds)
     try:
         yield
     finally:
@@ -77,8 +90,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    # Sin "*" + credentials (combinación inválida). Si se usa "*", no se
+    # envían cookies (credentials) y la API usa Authorization header.
+    allow_origins=settings.cors_origins,
+    allow_credentials=not ("*" in settings.cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -108,6 +123,11 @@ app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
 app.include_router(whatsapp.router, prefix="/api/v1")
 app.include_router(create_gym.router, prefix="/api/v1")
+app.include_router(equipment.catalog_router, prefix="/api/v1")
+app.include_router(equipment.layout_router, prefix="/api/v1")
+app.include_router(equipment.router, prefix="/api/v1")
+app.include_router(maintenance.router, prefix="/api/v1")
+app.include_router(support_tickets.router, prefix="/api/v1")
 
 # Media (MVP local). La URL pública /media/... es la que devuelven los endpoints.
 media_dir = Path(settings.media_root)

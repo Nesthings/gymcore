@@ -21,6 +21,8 @@ COMPONENTS: dict[str, str] = {
     "productos": "Productos",
     "ventas": "Ventas",
     "inteligencia": "Riesgo de abandono",
+    "layout": "Layout",
+    "soporte": "Soporte",
     "configuracion": "Configuración",
     "auditoria": "Bitácora",
 }
@@ -35,6 +37,8 @@ COMPONENT_DESCRIPTIONS: dict[str, str] = {
     "productos": "Catálogo de productos de venta con existencia y alertas de stock.",
     "ventas": "Ventas de mostrador: ingresos, gráficas e historial.",
     "inteligencia": "Socios en riesgo de abandono y score de retención.",
+    "layout": "Plano del gimnasio, equipos y mantenimiento preventivo.",
+    "soporte": "Reportar problemas y consultar su estado de atención.",
     "configuracion": "Gimnasio, sucursales, equipo y accesos.",
     "auditoria": "Bitácora de acciones del sistema.",
 }
@@ -50,6 +54,8 @@ ROLE_DEFAULT_COMPONENTS: dict[str, set[str]] = {
         "productos",
         "ventas",
         "inteligencia",
+        "layout",
+        "soporte",
     },
     "recepcion": {
         "dashboard",
@@ -60,6 +66,8 @@ ROLE_DEFAULT_COMPONENTS: dict[str, set[str]] = {
         "crm",
         "productos",
         "ventas",
+        "layout",
+        "soporte",
         "auditoria",
     },
 }

@@ -1,4 +1,5 @@
 import {
+  CircleHelp,
   Dumbbell,
   History,
   Home,
@@ -349,6 +350,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             {sugUnread > 9 ? '9+' : sugUnread}
                           </span>
                         )}
+                      </NavLink>
+                    )}
+                    {hasComponent('soporte') && (
+                      <NavLink
+                        to="/reportar-problema"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <CircleHelp className="size-4" aria-hidden="true" />
+                        Soporte
                       </NavLink>
                     )}
                     {hasComponent('auditoria') && (

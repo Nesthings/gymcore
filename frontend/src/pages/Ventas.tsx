@@ -42,7 +42,6 @@ const METHOD_LABELS: Record<string, string> = {
   cash: 'Efectivo',
   card: 'Tarjeta',
   transfer: 'Transferencia',
-  mercadopago: 'Mercado Pago',
   otro: 'Otro',
 }
 

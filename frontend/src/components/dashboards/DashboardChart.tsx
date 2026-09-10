@@ -156,6 +156,7 @@ export const DashboardChart = memo(function DashboardChart({
   switch (slug) {
     case 'ingresos_mensuales':
     case 'nuevas_membresias':
+    case 'retencion':
       return <AreaChartCard data={data as { label: string; value: number }[]} />
     case 'cancelaciones':
       return <Donut data={data as NameValue[]} />

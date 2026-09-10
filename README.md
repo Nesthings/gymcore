@@ -12,7 +12,7 @@ operativa** (riesgo de abandono, morosidad, score de retención).
 
 - **Auth multi-tenant** — roles `super-admin / admin / recepcion / coach`
 - **Socios + membresías** — alta, renovación, cancelación
-- **Cobranza** — pagos (cash/card/transfer/**Mercado Pago**), recordatorios de vencimiento, recibo PDF
+- **Cobranza** — pagos (cash/card/transfer), recordatorios de vencimiento, recibo PDF
 - **Check-in por QR/nombre** — sin hardware
 - **Dashboard operativo** — ingresos, renovaciones, cancelaciones, morosidad, riesgo
 - **CRM básico** — leads, pipeline, conversión
@@ -25,7 +25,7 @@ operativa** (riesgo de abandono, morosidad, score de retención).
 | Backend | FastAPI · SQLAlchemy 2.0 · Alembic · PostgreSQL 16 |
 | Auth | JWT HS256 (python-jose) + passlib/bcrypt |
 | Frontend | React 19 · Vite · TypeScript · Tailwind CSS v4 · shadcn/ui (Radix) · Recharts |
-| Pagos | Mercado Pago (checkout Preferences + webhook) |
+| Pagos | cash / tarjeta / transferencia · recibo PDF |
 | Notificaciones | WhatsApp Business (Meta Cloud API) · SMTP · cola dual SQS/sync |
 
 ## Arranque local
@@ -58,7 +58,7 @@ backend/
     core/         # config, security, permissions (por componente), events, storage
     models/       # ORM: gym, staff, member, membership, payment, checkin, lead…
     schemas/      # Pydantic
-    services/     # queue, whatsapp, email, mercadopago, risk_engine
+    services/     # queue, whatsapp, email, risk_engine
   alembic/        # migraciones
   tests/          # pytest contra PostgreSQL real
 frontend/
@@ -79,7 +79,5 @@ frontend/
 ## Notas
 
 - Roles y catálogo de componentes por módulo se configuran en `app/core/permissions.py`.
-- Mercado Pago requiere `MERCADOPAGO_ACCESS_TOKEN`; sin él, los pagos por ese
-  método devuelven 502 (los demás métodos funcionan sin pasarela).
 - El token de acceso de GitHub está en el prompt del producto; si es un secret
   real, rótalo (está expuesto en `~/Descargas/gymcore-prompt.md`).

@@ -6,12 +6,13 @@ token actual, recuperación de contraseña del staff.
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentGym, CurrentUser, get_current_gym, get_current_user
 from app.core.config import settings
+from app.core.ratelimit import login_limiter, twofa_limiter
 from app.core.security import (
     create_access_token,
     create_reset_token,
@@ -128,15 +129,25 @@ def _super_admin_login(
     summary="Login por correo y contraseña (identifica gimnasio y rol automáticamente)",
 )
 def login(
-    body: LoginRequest, db: Session = Depends(get_db)
+    body: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
 ) -> LoginResponse | TwoFactorRequiredResponse:
     """Autentica con correo + contraseña y detecta la identidad:
     staff de gimnasio (identifica `gym_id`, `branch_id` y rol) o super-admin.
     Si la cuenta tiene 2FA activo, devuelve un challenge a completar en
     `/auth/2fa/verify`."""
+    client_ip = request.client.host if request.client else "unknown"
+    rl_key = f"{body.identifier.strip().lower()}:{client_ip}"
+    if not login_limiter.allow(rl_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos. Intenta de nuevo en un minuto.",
+        )
     for fn in (_staff_login, _super_admin_login):
         try:
             resp = fn(db, body.identifier, body.password)
+            login_limiter.reset(rl_key)
             return resp
         except HTTPException:
             continue
@@ -148,9 +159,25 @@ def login(
     summary="Login de super-admin (dueño del producto)",
 )
 def login_super_admin(
-    body: LoginRequest, db: Session = Depends(get_db)
+    body: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
 ) -> LoginResponse | TwoFactorRequiredResponse:
-    return _super_admin_login(db, body.identifier, body.password)
+    client_ip = request.client.host if request.client else "unknown"
+    rl_key = f"{body.identifier.strip().lower()}:{client_ip}"
+    if not login_limiter.allow(rl_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos. Intenta de nuevo en un minuto.",
+        )
+    try:
+        resp = _super_admin_login(db, body.identifier, body.password)
+        login_limiter.reset(rl_key)
+        return resp
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas"
+        ) from None
 
 
 @router.get("/me", response_model=MeResponse, summary="Identidad del token actual")
@@ -295,8 +322,15 @@ def reset_password(
 )
 def verify_2fa(
     body: TwoFactorVerifyRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> LoginResponse:
+    client_ip = request.client.host if request.client else "unknown"
+    if not twofa_limiter.allow(f"{body.challenge_token}:{client_ip}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos de verificación. Vuelve a iniciar sesión.",
+        )
     try:
         payload = get_token_payload(body.challenge_token)
     except Exception:

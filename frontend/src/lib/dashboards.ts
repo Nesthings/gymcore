@@ -50,6 +50,12 @@ export const DASHBOARD_CATALOG: DashboardDef[] = [
     desc: 'Leads por etapa del embudo',
     chart: 'stacked',
   },
+  {
+    slug: 'retencion',
+    title: 'Porcentaje de retención',
+    desc: 'Renovaciones sobre membresías vencidas por mes',
+    chart: 'area',
+  },
 ]
 
 export const CHART_LABELS: Record<ChartKind, string> = {

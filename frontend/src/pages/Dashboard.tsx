@@ -350,7 +350,7 @@ export function Dashboard() {
     <AppLayout>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">Inicio</h1>
           <p className="text-sm text-muted-foreground">
             {new Date().toLocaleDateString('es-MX', {
               weekday: 'long',
@@ -363,7 +363,7 @@ export function Dashboard() {
       </div>
 
       <div className="mb-6 flex flex-col gap-2 sm:flex-row">
-        <Button variant="success" size="xl" className="w-full sm:w-auto" onClick={() => setMemberFormOpen(true)}>
+        <Button variant="default" size="xl" className="w-full sm:w-auto" onClick={() => setMemberFormOpen(true)}>
           <UserPlus className="size-5" aria-hidden="true" />
           Nuevo socio
         </Button>

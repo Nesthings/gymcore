@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AuthProvider } from '@/lib/auth'
+import { InactivityGuard } from '@/lib/session'
 import { ThemeProvider } from '@/lib/theme'
 import { DashboardConfigProvider } from '@/lib/dashboard-config'
 import { NavConfigProvider } from '@/lib/nav-config'
@@ -16,9 +17,13 @@ const ForgotPassword = lazy(() =>
   import('@/pages/auth/ForgotPassword').then((m) => ({ default: m.ForgotPassword })),
 )
 const GuestPass = lazy(() => import('@/pages/GuestPass').then((m) => ({ default: m.GuestPass })))
+const LayoutPage = lazy(() => import('@/pages/Layout').then((m) => ({ default: m.Layout })))
 const Login = lazy(() => import('@/pages/auth/Login').then((m) => ({ default: m.Login })))
 const ResetPassword = lazy(() =>
   import('@/pages/auth/ResetPassword').then((m) => ({ default: m.ResetPassword })),
+)
+const ReportProblem = lazy(() =>
+  import('@/pages/ReportProblem').then((m) => ({ default: m.ReportProblem })),
 )
 const Audit = lazy(() => import('@/pages/Audit').then((m) => ({ default: m.Audit })))
 const Checkin = lazy(() => import('@/pages/Checkin').then((m) => ({ default: m.Checkin })))
@@ -73,8 +78,9 @@ function App() {
             <GymMetaProvider>
               <NavConfigProvider>
                 <DashboardConfigProvider>
+                  <BrowserRouter>
                   <ScannerProvider>
-                    <BrowserRouter>
+                  <InactivityGuard />
                   <Suspense fallback={<RouteFallback />}>
                     <Routes>
                     <Route path="/login" element={<Login />} />
@@ -168,6 +174,14 @@ function App() {
                       }
                     />
                     <Route
+                      path="/layout"
+                      element={
+                        <ProtectedRoute component="layout">
+                          <LayoutPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/riesgo"
                       element={
                         <ProtectedRoute component="inteligencia">
@@ -208,6 +222,14 @@ function App() {
                       }
                     />
                     <Route
+                      path="/reportar-problema"
+                      element={
+                        <ProtectedRoute component="soporte">
+                          <ReportProblem />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/setup"
                       element={
                         <ProtectedRoute roles={['admin']}>
@@ -219,8 +241,8 @@ function App() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                   </Suspense>
-                  </BrowserRouter>
                   </ScannerProvider>
+                  </BrowserRouter>
                 </DashboardConfigProvider>
             </NavConfigProvider>
             </GymMetaProvider>

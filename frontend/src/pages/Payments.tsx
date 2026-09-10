@@ -35,7 +35,6 @@ const PAYMENT_METHODS: Record<string, string> = {
   cash: 'Efectivo',
   card: 'Tarjeta',
   transfer: 'Transferencia',
-  mercadopago: 'Mercado Pago',
 }
 
 const PAYMENT_STATUS: Record<
@@ -159,7 +158,6 @@ export function Payments() {
               <SelectItem value="cash">Efectivo</SelectItem>
               <SelectItem value="card">Tarjeta</SelectItem>
               <SelectItem value="transfer">Transferencia</SelectItem>
-              <SelectItem value="mercadopago">Mercado Pago</SelectItem>
             </SelectContent>
           </Select>
         </div>

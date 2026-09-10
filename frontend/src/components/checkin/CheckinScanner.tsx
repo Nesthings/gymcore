@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast'
 import QrCamera, { requestCameraPermission } from '@/components/checkin/QrCamera'
 import { useScanner } from '@/lib/scanner'
 import { apiFetch } from '@/lib/api'
+import { playBeep, playCheckin, playCheckout } from '@/lib/beep'
 import { cn } from '@/lib/utils'
 
 interface MemberOption {
@@ -22,6 +23,7 @@ interface CheckinResult {
   ok: boolean
   member_name: string
   plan_active: boolean
+  action?: string
   message?: string
 }
 
@@ -89,11 +91,28 @@ export function CheckinScanner({
         })
         if (res.ok) {
           setSuccess(res)
-          toast({
-            title: 'Check-in registrado',
-            description: `${res.member_name} · ${res.message ?? 'Acceso confirmado'}`,
-            variant: 'success',
-          })
+          if (res.action === 'checkout') {
+            toast({
+              title: 'Salida registrada',
+              description: `${res.member_name} · sesión cerrada`,
+              variant: 'success',
+            })
+            playCheckout()
+          } else if (res.action === 'already_in' || res.message?.includes('sesión activa')) {
+            toast({
+              title: res.member_name,
+              description: 'Ya está dentro (sesión activa)',
+              variant: 'info',
+            })
+            playBeep(660, 0.09)
+          } else {
+            toast({
+              title: 'Check-in registrado',
+              description: `${res.member_name} · ${res.message ?? 'Acceso confirmado'}`,
+              variant: 'success',
+            })
+            playCheckin()
+          }
           onChecked?.()
         } else {
           toast({
@@ -126,11 +145,28 @@ export function CheckinScanner({
       })
       if (res.ok) {
         setSuccess(res)
-        toast({
-          title: 'Check-in registrado',
-          description: `${res.member_name} · ${res.message ?? 'Acceso confirmado'}`,
-          variant: 'success',
-        })
+        if (res.action === 'checkout') {
+          toast({
+            title: 'Salida registrada',
+            description: `${res.member_name} · sesión cerrada`,
+            variant: 'success',
+          })
+          playCheckout()
+        } else if (res.action === 'already_in' || res.message?.includes('sesión activa')) {
+          toast({
+            title: res.member_name,
+            description: 'Ya está dentro (sesión activa)',
+            variant: 'info',
+          })
+          playBeep(660, 0.09)
+        } else {
+          toast({
+            title: 'Check-in registrado',
+            description: `${res.member_name} · ${res.message ?? 'Acceso confirmado'}`,
+            variant: 'success',
+          })
+          playCheckin()
+        }
         onChecked?.()
       } else {
         toast({

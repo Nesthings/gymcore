@@ -138,13 +138,42 @@ def gym_summary(
 
 
 @router.get(
-    "/gyms", response_model=list[GymRead], dependencies=[Depends(require_roles("super-admin"))]
+    "/gyms", dependencies=[Depends(require_roles("super-admin"))]
 )
 def platform_list_gyms(
     _user: CurrentUser = Depends(require_roles("super-admin")),
     db: Session = Depends(get_db),
-) -> list[Gym]:
-    return list(db.scalars(select(Gym).order_by(Gym.created_at.desc())))
+) -> list[dict]:
+    gyms = db.scalars(select(Gym).order_by(Gym.created_at.desc())).all()
+    out = []
+    for g in gyms:
+        staff = db.execute(
+            text("SELECT COUNT(*) FROM users WHERE gym_id = :gid"), {"gid": str(g.id)}
+        ).scalar()
+        branches = db.execute(
+            text("SELECT COUNT(*) FROM gym_branches WHERE gym_id = :gid"), {"gid": str(g.id)}
+        ).scalar()
+        members = db.execute(
+            text("SELECT COUNT(*) FROM members WHERE gym_id = :gid AND status = 'active'"),
+            {"gid": str(g.id)},
+        ).scalar()
+        row = {
+            "id": g.id,
+            "name": g.name,
+            "contact_name": g.contact_name,
+            "contact_phone": g.contact_phone,
+            "contact_email": g.contact_email,
+            "subscription_status": g.subscription_status,
+            "setup_completed": g.setup_completed,
+            "timezone": g.timezone,
+            "currency": g.currency,
+            "created_at": g.created_at,
+            "staff_count": staff or 0,
+            "branches_count": branches or 0,
+            "members_count": members or 0,
+        }
+        out.append(row)
+    return out
 
 
 @router.get(

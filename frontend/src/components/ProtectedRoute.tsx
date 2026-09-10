@@ -55,6 +55,14 @@ export function ProtectedRoute({
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
+  // El super-admin vive SOLO en /platform (centro de control). No debe acceder
+  // a ninguna pantalla del panel del gimnasio (Inicio, Layout, Socios, etc.);
+  // si llega a una, se le redirige a /platform. Esto también hace que el botón
+  // "atrás" del navegador no pueda dejarlo en páginas de usuario normal.
+  if (user?.role === 'super-admin' && location.pathname !== '/platform') {
+    return <Navigate to="/platform" replace />
+  }
+
   if (roles && user && !roles.includes(user.role)) {
     return <AccessDenied />
   }

@@ -74,50 +74,50 @@
 }
 
 [data-theme='dark'] {
-  /* Fondos casi-negro (espíritu VetCore #121816) con calidez carbón */
-  --background: #121110;
-  --foreground: #ece9e2;
-  --card: #1a1917;
-  --card-foreground: #ece9e2;
-  --popover: #1a1917;
-  --popover-foreground: #ece9e2;
+  /* Paleta nocturna: negro carbón + rojo carmesí */
+  --background: #0b0d0f;
+  --foreground: #f2f3f5;
+  --card: #171b20;
+  --card-foreground: #f2f3f5;
+  --popover: #171b20;
+  --popover-foreground: #f2f3f5;
 
-  /* Acento ROJO vivo/energético en dark (identidad nocturna del gimnasio) */
-  --primary: #ef4444;
-  --primary-hover: #f35252;
-  --primary-foreground: #17080a;
+  /* Acento rojo carmesí (identidad nocturna) */
+  --primary: #c6283d;
+  --primary-hover: #e0344d;
+  --primary-foreground: #ffffff;
 
-  --secondary: #26241f;
-  --secondary-foreground: #d7d3c9;
-  --muted: #1d1c18;
-  --muted-foreground: #9b968b;
-  --accent: #26241f;
-  --accent-foreground: #ece9e2;
+  --secondary: #111418;
+  --secondary-foreground: #f2f3f5;
+  --muted: #111418;
+  --muted-foreground: #a7adb5;
+  --accent: #1e2329;
+  --accent-foreground: #f2f3f5;
 
-  /* Estados semánticos: destructive coral vivo (se distingue del primario rojo) */
-  --destructive: #ff6b5e;
-  --destructive-foreground: #260a08;
-  --success: #86b586;
-  --success-foreground: #0a1a0d;
-  --warning: #fbbf24;
-  --warning-foreground: #291d03;
-  --info: #93a4b8;
-  --info-foreground: #0d131d;
+  /* Estados semánticos */
+  --destructive: #e04455;
+  --destructive-foreground: #ffffff;
+  --success: #2dbe78;
+  --success-foreground: #06281a;
+  --warning: #d9a441;
+  --warning-foreground: #2a1e05;
+  --info: #a7adb5;
+  --info-foreground: #111418;
 
   /* Bordes y anillos */
-  --border: #2a2822;
-  --input: #37342d;
-  --ring: #ef4444;
+  --border: #292f36;
+  --input: #30363e;
+  --ring: #c6283d;
 
-  /* Gráficas dark: familia rojo/rosa + ámbar + piedra (coherente con el acento) */
-  --chart-1: #ef4444;
-  --chart-2: #fb7185;
-  --chart-3: #f59e0b;
-  --chart-4: #a8a29e;
-  --chart-5: #e5484d;
+  /* Gráficas dark: familia roja + ámbar + esmeralda */
+  --chart-1: #c6283d;
+  --chart-2: #e0344d;
+  --chart-3: #d9a441;
+  --chart-4: #2dbe78;
+  --chart-5: #8e1d2d;
 
   /* Acento de marca nocturno */
-  --gradient-brand: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  --gradient-brand: linear-gradient(135deg, #c6283d 0%, #e0344d 100%);
 }
 
 @theme inline {

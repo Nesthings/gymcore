@@ -124,7 +124,6 @@ const PAYMENT_METHODS: Record<string, string> = {
   cash: 'Efectivo',
   card: 'Tarjeta',
   transfer: 'Transferencia',
-  mercadopago: 'Mercado Pago',
 }
 
 const PAYMENT_STATUS: Record<string, { label: string; variant: 'soft-success' | 'soft-warning' | 'soft-destructive' }> = {
@@ -151,7 +150,7 @@ function InfoRow({
       </span>
       <div className="min-w-0">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium text-foreground">{value}</p>
+        <p className="break-all text-sm font-medium text-foreground">{value}</p>
       </div>
     </div>
   )

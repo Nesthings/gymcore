@@ -35,7 +35,6 @@ const PAYMENT_METHODS = [
   { value: 'cash', label: 'Efectivo' },
   { value: 'card', label: 'Tarjeta' },
   { value: 'transfer', label: 'Transferencia' },
-  { value: 'mercadopago', label: 'Mercado Pago' },
 ]
 
 export function NewSaleDialog({

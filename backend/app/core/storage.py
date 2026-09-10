@@ -100,11 +100,18 @@ def public_url(relative_path: str) -> str:
 
 
 def media_path_from_url(url: str | None) -> Path | None:
-    """Resuelve una URL pública `/media/...` al Path local, si existe."""
+    """Resuelve una URL pública `/media/...` al Path local, si existe.
+
+    Normaliza con `resolve()` y valida que el resultado quede DENTRO del
+    media root (evita path traversal si alguna URL llegara manipulada).
+    """
     if not url or not url.startswith("/media/"):
         return None
-    p = media_root_path() / url[len("/media/") :]
-    return p if p.is_file() else None
+    root = media_root_path().resolve()
+    candidate = (root / url[len("/media/") :]).resolve()
+    if not candidate.is_relative_to(root):
+        return None
+    return candidate if candidate.is_file() else None
 
 
 def read_media_bytes(url: str | None) -> bytes | None:
@@ -138,3 +145,18 @@ def validate_extension(filename: str, allowed: set[str]) -> None:
             f"Extensión no permitida: {suffix or '(sin extensión)'}. "
             f"Permitidas: {', '.join(sorted(allowed))}"
         )
+
+
+def read_upload_limited(upload_file, max_bytes: int = 5 * 1024 * 1024) -> bytes:
+    """Lee el contenido de un UploadFile con tope de tamaño.
+
+    Lee en chunks y corta al superar `max_bytes` para no bufferizar archivos
+    gigantes en memoria (anti DoS). Lanza ValueError si se excede el límite.
+    """
+    limit = max(1, max_bytes)
+    content = upload_file.file.read(limit + 1)
+    if len(content) > limit:
+        raise ValueError(
+            f"El archivo supera el límite de {limit // (1024 * 1024)} MB"
+        )
+    return content

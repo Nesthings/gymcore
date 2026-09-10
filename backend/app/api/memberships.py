@@ -228,6 +228,8 @@ def assign_membership(
     member = db.scalar(select(Member).where(Member.id == member_id, Member.gym_id == ctx.gym["id"]))
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Socio no encontrado")
+    # Serializa asignaciones concurrentes del mismo socio (evita doble membresía/pago).
+    db.execute(text("SELECT id FROM members WHERE id = :mid FOR UPDATE"), {"mid": member.id})
     plan = db.scalar(
         select(MembershipPlan).where(
             MembershipPlan.id == body.plan_id, MembershipPlan.gym_id == ctx.gym["id"]

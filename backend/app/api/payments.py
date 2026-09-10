@@ -1,10 +1,8 @@
 """Pagos y cobranza — por-tenant.
 
-Registro de pagos (cash/card/transfer/mercadopago), listado con filtros,
-recibo PDF y webhook de confirmación de Mercado Pago.
+Registro de pagos (cash/card/transfer), listado con filtros y recibo PDF.
 """
 
-import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,7 +14,6 @@ from app.core.events import record_audit
 from app.db.session import get_db
 from app.models import Member, Payment
 from app.schemas.payment import PaymentCreate, PaymentRead
-from app.services import mercadopago
 
 router = APIRouter(tags=["payments"])
 
@@ -32,7 +29,6 @@ def _to_payment_read(db: Session, p: Payment) -> dict:
         "status": p.status,
         "concept": p.concept,
         "notes": p.notes,
-        "mp_checkout_url": p.mp_checkout_url,
         "external_ref": p.external_ref,
         "paid_at": p.paid_at,
         "created_at": p.created_at,
@@ -45,7 +41,7 @@ def list_payments(
     db: Session = Depends(get_db),
     from_: datetime | None = Query(default=None, alias="from"),
     to: datetime | None = Query(default=None),
-    method: str | None = Query(default=None, pattern="^(cash|card|transfer|mercadopago)$"),
+    method: str | None = Query(default=None, pattern="^(cash|card|transfer)$"),
     status_: str | None = Query(
         default=None, alias="status", pattern="^(paid|pending|failed|refunded)$"
     ),
@@ -88,9 +84,6 @@ def create_payment(
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Socio no encontrado")
 
-    if body.method == "mercadopago":
-        return _init_mercadopago(db, ctx, body, member)
-
     payment = Payment(
         gym_id=ctx.gym["id"],
         member_id=member.id,
@@ -113,49 +106,6 @@ def create_payment(
         entity_id=member.id,
         metadata={"amount": float(body.amount), "method": body.method},
     )
-    db.commit()
-    db.refresh(payment)
-    return _to_payment_read(db, payment)
-
-
-def _init_mercadopago(
-    db: Session,
-    ctx: CurrentGym,
-    body: PaymentCreate,
-    member: Member,
-) -> dict:
-    """Crea una preferencia de checkout en Mercado Pago (pago pendiente)."""
-    gym_name = ctx.gym["name"]
-    payment = Payment(
-        gym_id=ctx.gym["id"],
-        member_id=member.id,
-        amount=body.amount,
-        method="mercadopago",
-        status="pending",
-        concept=body.concept,
-        notes=body.notes,
-        paid_at=body.paid_at or datetime.now(UTC),
-        created_by=ctx.user.sub,
-    )
-    db.add(payment)
-    db.flush()
-    external_ref = str(payment.id)
-    payment.external_ref = external_ref
-    title = body.concept or f"Membresía {member.full_name}"
-    res = mercadopago.create_preference(
-        title=title,
-        amount=float(body.amount),
-        external_reference=external_ref,
-        gym_name=gym_name,
-    )
-    if not res["ok"]:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"No se pudo iniciar el pago con Mercado Pago: {res.get('error')}",
-        )
-    payment.mp_preference_id = res["id"]
-    payment.mp_checkout_url = res["init_point"]
     db.commit()
     db.refresh(payment)
     return _to_payment_read(db, payment)
@@ -225,36 +175,3 @@ def payment_receipt(
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="recibo-{payment.id}.pdf"'},
     )
-
-
-@router.post(
-    "/payments/webhook/mercadopago",
-    summary="Webhook de confirmación de pago (Mercado Pago)",
-    include_in_schema=False,
-)
-async def mercadopago_webhook(body: dict, db: Session = Depends(get_db)) -> dict:
-    """Recibe la notificación de Mercado Pago y confirma el pago."""
-    try:
-        mp_id = str(body.get("data", {}).get("id", ""))
-        if not mp_id:
-            return {"ok": True}
-        res = mercadopago.get_payment(mp_id)
-        if not res["ok"]:
-            return {"ok": False, "error": res.get("error")}
-        status_ = res.get("status")
-        external_ref = res.get("external_reference")
-        if not external_ref:
-            return {"ok": True}
-        payment = db.get(Payment, uuid.UUID(external_ref))
-        if payment is None:
-            return {"ok": True}
-        payment.mp_payment_id = mp_id
-        if status_ == "approved":
-            payment.status = "paid"
-        elif status_ in ("rejected", "cancelled", "refunded"):
-            payment.status = "failed" if status_ != "refunded" else "refunded"
-        db.commit()
-        return {"ok": True}
-    except Exception as exc:  # noqa: BLE001 - no romper la notificación
-        db.rollback()
-        return {"ok": False, "error": str(exc)[:300]}

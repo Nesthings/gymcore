@@ -353,7 +353,11 @@ export function Configuracion() {
                       {users.map((u) => (
                         <TableRow key={u.id}>
                           <TableCell className="font-medium">{u.full_name}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{u.email}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <span className="block max-w-[16rem] truncate" title={u.email}>
+                              {u.email}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={ROLE_BADGE[u.role] ?? 'soft-secondary'}>
                               {ROLE_LABELS[u.role] ?? u.role}

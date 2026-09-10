@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 from app.models.base import GymScopedMixin, UUIDPkMixin
 
-PAYMENT_METHODS = ("cash", "card", "transfer", "mercadopago")
+PAYMENT_METHODS = ("cash", "card", "transfer")
 PAYMENT_STATUSES = ("pending", "paid", "failed", "refunded")
 
 
@@ -33,10 +33,6 @@ class Payment(GymScopedMixin, UUIDPkMixin, Base):
     )
     concept: Mapped[str | None] = mapped_column(String(150))
     notes: Mapped[str | None] = mapped_column(Text)
-    # Integración Mercado Pago
-    mp_preference_id: Mapped[str | None] = mapped_column(String(100))
-    mp_checkout_url: Mapped[str | None] = mapped_column(Text)
-    mp_payment_id: Mapped[str | None] = mapped_column(String(100))
     external_ref: Mapped[str | None] = mapped_column(String(100))
     paid_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

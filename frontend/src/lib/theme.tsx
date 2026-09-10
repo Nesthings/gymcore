@@ -36,7 +36,7 @@ function applyFavicon(theme: Theme) {
   const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
   if (apple) apple.href = href
   const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-  if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#1a1917' : '#f5f4f1')
+  if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#0b0d0f' : '#f5f4f1')
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

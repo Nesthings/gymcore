@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 import { decodeJwtPayload, getToken, setToken } from '@/lib/api'
 
@@ -32,6 +32,14 @@ function sessionFromToken(token: string | null): SessionUser | null {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => getToken())
+
+  // Si cualquier petición devuelve 401 (token expirado/inválido), se cierra la
+  // sesión y ProtectedRoute redirige a /login.
+  useEffect(() => {
+    const onUnauthorized = () => setTokenState(null)
+    window.addEventListener('gymcore:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('gymcore:unauthorized', onUnauthorized)
+  }, [])
 
   const value = useMemo<AuthContextValue>(() => {
     return {

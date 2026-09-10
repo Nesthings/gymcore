@@ -65,9 +65,12 @@ def mark_read(
             status_code=status.HTTP_404_NOT_FOUND, detail="Notificación no encontrada"
         )
     now = datetime.now(UTC)
+    # Marca solo las notificaciones del propio usuario (deduplicadas por
+    # gym/type/message/link) para no tocar las de otros usuarios.
     db.execute(
         update(InternalNotification)
         .where(
+            InternalNotification.user_id == me.sub,
             InternalNotification.gym_id == notification.gym_id,
             InternalNotification.type == notification.type,
             InternalNotification.message == notification.message,
@@ -84,12 +87,10 @@ def mark_all_read(
     me: CurrentUser = Depends(require_staff),
     db: Session = Depends(get_db),
 ) -> None:
-    if not me.gym_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin gimnasio asociado")
     db.execute(
         update(InternalNotification)
         .where(
-            InternalNotification.gym_id == me.gym_id,
+            InternalNotification.user_id == me.sub,
             InternalNotification.read_at.is_(None),
         )
         .values(read_at=datetime.now(UTC))

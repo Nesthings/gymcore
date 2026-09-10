@@ -67,7 +67,7 @@ class AssignMembershipRequest(BaseModel):
     plan_id: uuid.UUID
     start_date: datetime | None = None
     paid_amount: float | None = Field(default=None, ge=0)
-    payment_method: str | None = Field(default=None, pattern="^(cash|card|transfer|mercadopago)$")
+    payment_method: str | None = Field(default=None, pattern="^(cash|card|transfer)$")
     branch_id: uuid.UUID | None = None
 
 
@@ -87,7 +87,7 @@ class ActiveMembershipRead(BaseModel):
 
 class RenewMembershipRequest(BaseModel):
     amount: float | None = Field(default=None, ge=0)
-    payment_method: str | None = Field(default=None, pattern="^(cash|card|transfer|mercadopago)$")
+    payment_method: str | None = Field(default=None, pattern="^(cash|card|transfer)$")
 
 
 class CancelMembershipRequest(BaseModel):

@@ -62,7 +62,13 @@ def clean_tables(_database):
                 "smart_alerts, smart_alert_rules, checkins, payments, "
                 "member_memberships, leads, members, membership_plans, "
                 "sale_products, sale_items, sales, user_component_permissions, "
-                "users, gym_subscription_events, gym_invites, gym_branches, gyms "
+                "users, gym_subscription_events, gym_invites, gym_branches, gyms, "
+                "member_passes, member_goals, member_weight_records, gym_posts, "
+                "password_reset_tokens, equipment_assets, maintenance_tasks, "
+                "maintenance_records, equipment_incidents, gym_layouts, "
+                "support_tickets, support_ticket_attachments, "
+                "equipment_model_maintenance_recommendations, equipment_models, "
+                "equipment_types, equipment_brands, equipment_categories "
                 "RESTART IDENTITY CASCADE"
             )
         )

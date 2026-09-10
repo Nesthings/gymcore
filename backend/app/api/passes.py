@@ -51,6 +51,19 @@ def _resolve_pass(db: Session, raw_token: str) -> MemberPass:
     return pase
 
 
+def _lock_pass(db: Session, raw_token: str) -> MemberPass:
+    """Resuelve el pase con bloqueo de fila (FOR UPDATE) para canjes atómicos."""
+    token = _normalize_pass_token(raw_token)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Falta el token")
+    pase = db.scalar(
+        select(MemberPass).where(MemberPass.token == token).with_for_update()
+    )
+    if pase is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pase no encontrado")
+    return pase
+
+
 @router.get("/guest-pass", summary="Página pública del pase de invitado (sin login)")
 def guest_pass(
     token: str | None = None,
@@ -92,7 +105,7 @@ def redeem_pass(
     ctx: CurrentGym = Depends(require_component("checkin")),
     db: Session = Depends(get_db),
 ) -> dict:
-    pase = _resolve_pass(db, str(body.get("token") or ""))
+    pase = _lock_pass(db, str(body.get("token") or ""))
     if pase.gym_id != ctx.gym["id"]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pase no encontrado")
     now = datetime.now(UTC)

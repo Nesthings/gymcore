@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, String, Text, func
+from sqlalchemy import Date, DateTime, Index, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -13,6 +13,15 @@ MEMBER_STATUSES = ("active", "inactive", "cancelled")
 
 class Member(GymScopedMixin, UUIDPkMixin, Base):
     __tablename__ = "members"
+    __table_args__ = (
+        Index(
+            "uq_members_gym_email",
+            "gym_id",
+            "email",
+            unique=True,
+            postgresql_where=text("email IS NOT NULL"),
+        ),
+    )
 
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str | None] = mapped_column(String(200))

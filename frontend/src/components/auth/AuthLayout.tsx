@@ -17,11 +17,11 @@ export function AuthLayout({
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center gap-8 overflow-hidden bg-background px-4 py-12">
-      {/* Aura volt/lime sutil de fondo (energía de gimnasio, sin ruido) */}
+      {/* Aura de fondo sutil (energía de gimnasio, sin ruido) */}
       <div
         className={cn(
           'pointer-events-none absolute -top-40 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full blur-3xl',
-          isDark ? 'bg-lime-400/10' : 'bg-lime-400/15',
+          isDark ? 'bg-destructive/10' : 'bg-primary/15',
         )}
         aria-hidden="true"
       />

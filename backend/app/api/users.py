@@ -14,7 +14,7 @@ from app.api.deps import (
     CurrentGym,
     CurrentUser,
     get_current_gym,
-    require_component,
+    require_gym_roles,
     require_staff,
 )
 from app.core.events import record_audit
@@ -147,7 +147,7 @@ def get_user(
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def create_user(
     body: UserCreate,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> dict:
     email = body.email.strip().lower()
@@ -177,7 +177,7 @@ def create_user(
 def update_user(
     user_id: str,
     body: UserUpdate,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> dict:
     user = _get_user_or_404(db, ctx.gym["id"], user_id)
@@ -202,7 +202,7 @@ def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deactivate_user(
     user_id: str,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> None:
     """Desactiva el usuario (soft-delete via is_active)."""
@@ -274,7 +274,7 @@ def _user_components_row(db: Session, user: User) -> dict:
 @router.get("/{user_id}/components", summary="Accesos a componentes de un usuario (admin)")
 def user_components(
     user_id: str,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> dict:
     user = _get_user_or_404(db, ctx.gym["id"], user_id)
@@ -295,7 +295,7 @@ class ComponentOverrides(BaseModel):
 def update_user_components(
     user_id: str,
     body: ComponentOverrides,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> dict:
     user = _get_user_or_404(db, ctx.gym["id"], user_id)

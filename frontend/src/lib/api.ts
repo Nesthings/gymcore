@@ -1,6 +1,7 @@
 const BASE_URL = '/api/v1'
 
 const TOKEN_KEY = 'gymcore_token'
+const DEFAULT_TIMEOUT_MS = 30_000
 
 function tokenFromStorage(): string | null {
   try {
@@ -48,10 +49,31 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+  // Timeout razonable: evita pantallas de carga infinitas si el backend no
+  // responde (petición colgada).
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...options, headers, signal: controller.signal })
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new ApiError(408, 'La petición tardó demasiado. Intenta de nuevo.')
+    }
+    throw err
+  } finally {
+    window.clearTimeout(timeout)
+  }
 
   if (res.status === 401) {
     setToken(null)
+    // Avisa al AuthProvider para cerrar la sesión y redirigir a /login en vez
+    // de dejar la pantalla en "Not Authenticated".
+    try {
+      window.dispatchEvent(new CustomEvent('gymcore:unauthorized'))
+    } catch {
+      // sin window (SSR/testing)
+    }
   }
 
   if (!res.ok) {

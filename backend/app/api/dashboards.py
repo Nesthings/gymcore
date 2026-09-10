@@ -4,7 +4,7 @@
 un dict `{slug: data}` con la forma que espera `DashboardChart` del frontend.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
@@ -35,12 +35,18 @@ PERIODS = ("day", "week", "month")
 
 
 def _months_labels(n: int = 6) -> list[str]:
+    """Etiquetas de los últimos n meses (incluye el actual), por nombre corto."""
     now = datetime.now(UTC)
-    out = []
+    labels: list[str] = []
     for i in range(n - 1, -1, -1):
-        d = (now.replace(day=1) - timedelta(days=i * 31)).replace(day=1)
-        out.append(d.strftime("%b"))
-    return out
+        month = now.month - i
+        year = now.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        d = datetime(year, month, 1)
+        labels.append(d.strftime("%b"))
+    return labels
 
 
 def _ingresos(db: Session, gid: str) -> list[dict]:
@@ -158,6 +164,45 @@ def _conversion_leads(db: Session, gid: str) -> list[dict]:
     ]
 
 
+def _retencion(db: Session, gid: str) -> list[dict]:
+    """Porcentaje de retención mensual.
+
+    Para cada uno de los últimos 6 meses: de las membresías que vencieron ese
+    mes, cuántas fueron renovadas (el mismo socio tiene una membresía nueva que
+    inicia dentro de los 30 días posteriores al vencimiento). Retención = %
+    renovadas sobre vencidas.
+    """
+    rows = (
+        db.execute(
+            text(
+                "SELECT to_char(date_trunc('month', mm.expires_at), 'Mon') AS label, "
+                "COUNT(*) AS expired, "
+                "COUNT(*) FILTER (WHERE EXISTS ("
+                "  SELECT 1 FROM member_memberships nx "
+                "  WHERE nx.member_id = mm.member_id AND nx.gym_id = mm.gym_id "
+                "    AND nx.starts_at >= mm.expires_at "
+                "    AND nx.starts_at <= mm.expires_at + interval '30 days'"
+                ")) AS renewed "
+                "FROM member_memberships mm "
+                "WHERE mm.gym_id = :gid "
+                "AND mm.expires_at >= date_trunc('month', now()) - interval '5 months' "
+                "AND mm.expires_at < date_trunc('month', now()) + interval '1 month' "
+                "GROUP BY 1 ORDER BY MIN(date_trunc('month', mm.expires_at))"
+            ),
+            {"gid": gid},
+        )
+        .mappings()
+        .all()
+    )
+    by_label = {r["label"]: (int(r["expired"]), int(r["renewed"])) for r in rows}
+    out = []
+    for m in _months_labels():
+        expired, renewed = by_label.get(m, (0, 0))
+        pct = round(renewed / expired * 100) if expired else 0
+        out.append({"label": m, "value": pct})
+    return out
+
+
 def _riesgo(db: Session, gid: str) -> dict:
     members = risk_for_gym(db, gid, limit=30)
     summary = {"critical": 0, "warning": 0, "info": 0, "success": 0}
@@ -190,6 +235,7 @@ BUILDERS = {
     "checkins_semana": _checkins_semana,
     "morosidad": _morosidad,
     "conversion_leads": _conversion_leads,
+    "retencion": _retencion,
     "riesgo_abandono": _riesgo,
 }
 

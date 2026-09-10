@@ -1,4 +1,14 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_JWT_SECRETS = {
+    "dev-only-secret-change-in-production",
+    "gymcore-local-dev-secret-2026-change-me",
+}
+_DEFAULT_SUPER_ADMIN_PASSWORDS = {
+    "change-me-in-production",
+    "gymcore_admin_2026",
+}
 
 
 class Settings(BaseSettings):
@@ -56,13 +66,43 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     smtp_starttls: bool = True
 
-    # Mercado Pago (pasarela de pagos)
-    mercadopago_access_token: str = ""
-    mercadopago_public_key: str = ""
-    mercadopago_webhook_secret: str = ""
-
     # Motor de riesgo de abandono: barrido periódico (segundos; 0 = desactivado)
     risk_sweep_seconds: int = 1800
+
+    # Check-in/out por lector: si el socio ya tiene una sesión abierta y
+    # vuelve a pasar el QR antes de estos minutos, se le avisa "ya está
+    # dentro" (probablemente no supo si pasó). Pasado este umbral, el
+    # escaneo cierra la sesión (check-out automático).
+    checkout_grace_minutes: int = 5
+
+    # Orígenes permitidos por CORS. En dev el frontend proxyea (mismo origen),
+    # así que el default "*" no requiere credentials.
+    cors_origins: list[str] = ["*"]
+
+    # Secreto del webhook de WhatsApp (Meta Cloud API) para validar firmas.
+    whatsapp_app_secret: str = ""
+
+    @model_validator(mode="after")
+    def _block_insecure_production_defaults(self) -> "Settings":
+        """Impide desplegar producción con secrets por defecto (H1).
+
+        En entornos que no sean development/test, un JWT_SECRET o
+        SUPER_ADMIN_PASSWORD por defecto haría que la app falle al arrancar
+        en lugar de desplegarse con tokens forjables.
+        """
+        if self.env in ("development", "test"):
+            return self
+        if self.jwt_secret in _DEFAULT_JWT_SECRETS:
+            raise ValueError(
+                "JWT_SECRET no está configurado para producción. "
+                "Define una clave aleatoria y segura."
+            )
+        if self.super_admin_password in _DEFAULT_SUPER_ADMIN_PASSWORDS:
+            raise ValueError(
+                "SUPER_ADMIN_PASSWORD no está configurado para producción. "
+                "Cambia la contraseña del super-admin."
+            )
+        return self
 
     @property
     def resolved_database_url(self) -> str:

@@ -15,6 +15,8 @@ export const COMPONENT_CATALOG: { slug: string; label: string; description?: str
   { slug: 'productos', label: 'Productos', description: 'Catálogo de productos de venta' },
   { slug: 'ventas', label: 'Ventas', description: 'Ventas e ingresos de mostrador' },
   { slug: 'inteligencia', label: 'Inteligencia', description: 'Riesgo de abandono y analítica' },
+  { slug: 'layout', label: 'Layout', description: 'Plano del gimnasio, equipos y mantenimiento' },
+  { slug: 'soporte', label: 'Soporte', description: 'Reportar problemas y su estado' },
   { slug: 'configuracion', label: 'Configuración', description: 'Gimnasio, sucursales y equipo' },
   { slug: 'auditoria', label: 'Auditoría', description: 'Bitácora de cambios' },
 ]

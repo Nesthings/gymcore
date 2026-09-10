@@ -46,7 +46,6 @@ from app.schemas.membership import (
     RenewMembershipRequest,
 )
 from app.schemas.payment import (
-    MercadoPagoInitResponse,
     PaymentCreate,
     PaymentRead,
 )
@@ -93,7 +92,6 @@ __all__ = [
     "MembershipPlanCreate",
     "MembershipPlanRead",
     "MembershipPlanUpdate",
-    "MercadoPagoInitResponse",
     "NotificationRead",
     "PaymentCreate",
     "PaymentRead",

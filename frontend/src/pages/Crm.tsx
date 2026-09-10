@@ -81,7 +81,7 @@ export function Crm() {
       })
       toast({
         title: 'Lead movido de etapa',
-        description: `${lead.name} ahora está en ${STAGE_LABELS[nextStatus]}.`,
+        description: `${lead.full_name} ahora está en ${STAGE_LABELS[nextStatus]}.`,
         variant: 'success',
       })
       refresh()
@@ -94,7 +94,7 @@ export function Crm() {
     if (!confirmDelete) return
     try {
       await apiFetch(`/leads/${confirmDelete.id}`, { method: 'DELETE' })
-      toast({ title: 'Lead eliminado', description: `${confirmDelete.name} se quitó del pipeline.`, variant: 'success' })
+      toast({ title: 'Lead eliminado', description: `${confirmDelete.full_name} se quitó del pipeline.`, variant: 'success' })
       setConfirmDelete(null)
       refresh()
     } catch (err) {
@@ -210,7 +210,7 @@ export function Crm() {
       <ConfirmDialog
         open={Boolean(confirmDelete)}
         onOpenChange={(open) => !open && setConfirmDelete(null)}
-        title={confirmDelete ? `¿Eliminar a ${confirmDelete.name} del pipeline?` : ''}
+        title={confirmDelete ? `¿Eliminar a ${confirmDelete.full_name} del pipeline?` : ''}
         description="El lead se eliminará de forma permanente."
         confirmLabel="Eliminar"
         variant="destructive"

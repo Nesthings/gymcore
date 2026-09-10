@@ -5,13 +5,14 @@ Alta, edición, baja y detalle con membresías, pagos, check-ins y riesgo.
 
 import secrets
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentGym, get_current_gym, require_component
+from app.api.deps import CurrentGym, get_current_gym, require_component, require_gym_roles
 from app.api.member_portal import GOAL_TYPES_VALID
 from app.core.events import record_audit
 from app.db.session import get_db
@@ -96,7 +97,14 @@ def create_member(
     data["email"] = email
     member = Member(gym_id=ctx.gym["id"], **data)
     db.add(member)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:  # noqa: BLE001 - carrera por email duplicado
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya existe un socio con ese email",
+        ) from exc
     db.refresh(member)
     record_audit(
         db,
@@ -252,17 +260,16 @@ def deactivate_member(
 
 # --------------------------------------------------------------------------
 # Portal del socio: invitación (link con QR) y engagement
+# El enlace NO expira; solo se revoca manualmente (regenerar o revocar).
 # --------------------------------------------------------------------------
-
-SHARE_TOKEN_DAYS = 60
 
 
 def _issue_share_token(member: Member) -> None:
     member.share_token = secrets.token_urlsafe(32)
-    member.share_expires_at = datetime.now(UTC) + timedelta(days=SHARE_TOKEN_DAYS)
+    member.share_expires_at = None
 
 
-@router.post("/{member_id}/share", summary="Genera/rota el link de invitación del socio (60 días)")
+@router.post("/{member_id}/share", summary="Genera/rota el link de invitación del socio (sin vencimiento)")
 def share_member(
     member_id: str,
     ctx: CurrentGym = Depends(require_component("socios")),
@@ -283,8 +290,8 @@ def share_member(
     return {
         "share_token": member.share_token,
         "share_url": f"/m?token={member.share_token}",
-        "expires_at": member.share_expires_at,
-        "expires_in_days": SHARE_TOKEN_DAYS,
+        "expires_at": None,
+        "expires_in_days": None,
     }
 
 
@@ -295,16 +302,39 @@ def share_member_info(
     db: Session = Depends(get_db),
 ) -> dict:
     member = _get_member_or_404(db, ctx.gym["id"], member_id)
-    if not member.share_token or (
-        member.share_expires_at and member.share_expires_at < datetime.now(UTC)
-    ):
+    if not member.share_token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin invitación vigente")
     return {
         "share_token": member.share_token,
         "share_url": f"/m?token={member.share_token}",
-        "expires_at": member.share_expires_at,
-        "expires_in_days": SHARE_TOKEN_DAYS,
+        "expires_at": None,
+        "expires_in_days": None,
     }
+
+
+@router.delete(
+    "/{member_id}/share",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoca manualmente el link de invitación del socio (solo admin)",
+)
+def revoke_member_share(
+    member_id: str,
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
+    db: Session = Depends(get_db),
+) -> None:
+    member = _get_member_or_404(db, ctx.gym["id"], member_id)
+    member.share_token = None
+    member.share_expires_at = None
+    record_audit(
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="member_share_revoked",
+        entity_type="member",
+        entity_id=member.id,
+    )
+    db.commit()
 
 
 @router.get("/{member_id}/engagement", summary="Rachas, visitas y progreso del socio")

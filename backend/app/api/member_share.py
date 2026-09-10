@@ -25,11 +25,6 @@ def _resolve_member(db: Session, token: str) -> Member:
     member = db.scalar(select(Member).where(Member.share_token == token))
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link inválido")
-    if member.share_expires_at is None or member.share_expires_at < datetime.now(UTC):
-        raise HTTPException(
-            status_code=status.HTTP_410_GONE,
-            detail="El enlace ha expirado. Pide a tu gimnasio uno nuevo.",
-        )
     return member
 
 

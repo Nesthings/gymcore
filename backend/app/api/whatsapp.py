@@ -7,6 +7,8 @@ de estado) por POST. El endpoint es público (no requiere auth de la app).
 El verify token se configura en `settings.whatsapp_webhook_verify_token`.
 """
 
+import hashlib
+import hmac
 import logging
 
 from fastapi import APIRouter, Request
@@ -32,7 +34,23 @@ def webhook_verify(request: Request):
 
 @router.post("/webhook", summary="Recibe eventos de WhatsApp (mensajes/estados)")
 async def webhook_receive(request: Request) -> dict:
-    """Acepta los eventos de Meta. Meta exige un 200 inmediato."""
+    """Acepta los eventos de Meta. Meta exige un 200 inmediato.
+
+    Si `WHATSAPP_APP_SECRET` está configurado, se valida la firma
+    `X-Hub-Signature-256` (HMAC-SHA256 del body con el app secret). Sin secreto
+    configurado (dev) se acepta y se registra una advertencia.
+    """
+    raw = await request.body()
+    if settings.whatsapp_app_secret:
+        signature = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(
+            settings.whatsapp_app_secret.encode(), raw, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            logger.warning("WhatsApp webhook: firma inválida")
+            return {"status": "ok"}  # no exponer el motivo; Meta espera 200
+    else:
+        logger.warning("WhatsApp webhook sin WHATSAPP_APP_SECRET: no se valida la firma")
     try:
         body = await request.json()
         # Registro básico de los mensajes entrantes y estados.

@@ -30,7 +30,7 @@ export function LeadCard({
   return (
     <div className="rounded-xl border border-border/70 bg-card p-3.5 shadow-card transition-[transform,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-semibold text-foreground">{lead.name}</p>
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">{lead.full_name}</p>
         {lead.value != null && lead.value > 0 && (
           <span className="shrink-0 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary">
             {MXN.format(lead.value)}
@@ -97,7 +97,7 @@ export function LeadCard({
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label={`Editar a ${lead.name}`}
+            aria-label={`Editar a ${lead.full_name}`}
             onClick={() => onEdit(lead)}
           >
             <Pencil />
@@ -105,7 +105,7 @@ export function LeadCard({
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label={`Eliminar a ${lead.name}`}
+            aria-label={`Eliminar a ${lead.full_name}`}
             className={cn('text-destructive')}
             onClick={() => onDelete(lead)}
           >

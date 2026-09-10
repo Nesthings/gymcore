@@ -18,7 +18,7 @@ import { apiFetch } from '@/lib/api'
 
 export interface Lead {
   id: string
-  name: string
+  full_name: string
   phone?: string | null
   email?: string | null
   source?: string | null
@@ -64,7 +64,7 @@ export function LeadFormDialog({
 
   useEffect(() => {
     if (!open) return
-    setName(lead?.name ?? '')
+    setName(lead?.full_name ?? '')
     setPhone(lead?.phone ?? '')
     setEmail(lead?.email ?? '')
     setSource(lead?.source ?? '')
@@ -84,7 +84,7 @@ export function LeadFormDialog({
     setSubmitting(true)
     try {
       const body = JSON.stringify({
-        name: name.trim(),
+        full_name: name.trim(),
         phone: phone.trim() || null,
         email: email.trim() || null,
         source: source || null,

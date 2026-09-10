@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentGym, get_current_gym, require_component
+from app.api.deps import CurrentGym, get_current_gym, require_gym_roles
 from app.db.session import get_db
 from app.models import GymBranch
 from app.schemas.gym import BranchCreate, BranchRead, BranchUpdate
@@ -51,7 +51,7 @@ def get_branch(
 @router.post("", response_model=BranchRead, status_code=status.HTTP_201_CREATED)
 def create_branch(
     body: BranchCreate,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> GymBranch:
     branch = GymBranch(gym_id=ctx.gym["id"], **body.model_dump())
@@ -65,7 +65,7 @@ def create_branch(
 def update_branch(
     branch_id: str,
     body: BranchUpdate,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> GymBranch:
     branch = _get_branch_or_404(db, ctx.gym["id"], branch_id)
@@ -79,7 +79,7 @@ def update_branch(
 @router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_branch(
     branch_id: str,
-    ctx: CurrentGym = Depends(require_component("configuracion")),
+    ctx: CurrentGym = Depends(require_gym_roles("admin")),
     db: Session = Depends(get_db),
 ) -> None:
     branch = _get_branch_or_404(db, ctx.gym["id"], branch_id)

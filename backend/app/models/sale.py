@@ -14,7 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 from app.models.base import UUIDPkMixin
 
-PAYMENT_METHODS = ("cash", "card", "transfer", "mercadopago")
+PAYMENT_METHODS = ("cash", "card", "transfer")
 
 
 class Sale(UUIDPkMixin, Base):

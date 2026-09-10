@@ -156,7 +156,7 @@ def create_sale(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Sucursal no encontrada"
             )
 
-    if body.payment_method not in (None, "cash", "card", "transfer", "mercadopago"):
+    if body.payment_method not in (None, "cash", "card", "transfer"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Método de pago inválido"
         )
@@ -165,7 +165,9 @@ def create_sale(
     items: list[SaleItem] = []
     for p in body.items:
         product = db.scalar(
-            select(SaleProduct).where(SaleProduct.id == p.product_id, SaleProduct.gym_id == gym_id)
+            select(SaleProduct)
+            .where(SaleProduct.id == p.product_id, SaleProduct.gym_id == gym_id)
+            .with_for_update()
         )
         if product is None:
             raise HTTPException(

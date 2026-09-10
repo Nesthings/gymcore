@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentGym, get_current_gym, require_component
+from app.core.config import settings
 from app.db.session import get_db
 from app.models import Checkin, Member, MemberMembership
 from app.schemas.checkin import CheckinRequest, CheckinResult, TodayCheckinRead
@@ -79,22 +80,52 @@ def checkin(
             status_code=status.HTTP_403_FORBIDDEN, detail="El socio está dado de baja"
         )
 
-    # Si ya tiene una sesión abierta hoy (sin check-out), no duplicamos: la
-    # devolvemos para que el staff pueda cerrarla (tiempo de entrenamiento).
+    # Serializa check-ins concurrentes del mismo socio (evita doble entrada).
+    db.execute(text("SELECT id FROM members WHERE id = :mid FOR UPDATE"), {"mid": member.id})
+
+    # Si ya tiene una sesión abierta hoy (sin check-out), decidimos:
+    #   - dentro del umbral de gracia: avisar "ya está dentro" (el socio
+    #     probablemente no supo si su QR pasó) → NO se togglea.
+    #   - después del umbral: se cierra la sesión (check-out automático) para
+    #     que el mismo lector registre entradas y salidas.
+    now = datetime.now(UTC)
     open_session = db.execute(
         text(
-            "SELECT id FROM checkins WHERE member_id = :mid AND gym_id = :gid "
+            "SELECT id, checked_at FROM checkins WHERE member_id = :mid AND gym_id = :gid "
             "AND checked_out_at IS NULL AND checked_at::date = current_date LIMIT 1"
         ),
         {"mid": member.id, "gid": str(ctx.gym["id"])},
-    ).scalar()
+    ).mappings().first()
     if open_session:
+        grace_min = settings.checkout_grace_minutes
+        session_age_min = (now - open_session["checked_at"]).total_seconds() / 60
+        if session_age_min < grace_min:
+            return CheckinResult(
+                ok=True,
+                action="already_in",
+                message=f"{member.full_name} ya está registrado (sesión activa)",
+                member_id=member.id,
+                member_name=member.full_name,
+                plan_active=True,
+            )
+        # Check-out automático: cierra la sesión y mide la duración.
+        duration_min = max(1, int(session_age_min))
+        db.execute(
+            text(
+                "UPDATE checkins SET checked_out_at = :out, duration_min = :dur WHERE id = :cid"
+            ),
+            {"out": now, "dur": duration_min, "cid": open_session["id"]},
+        )
+        db.commit()
         return CheckinResult(
             ok=True,
-            message=f"{member.full_name} ya está registrado (sesión activa)",
+            action="checkout",
+            message=f"Salida registrada de {member.full_name}",
             member_id=member.id,
             member_name=member.full_name,
             plan_active=True,
+            checkin_id=open_session["id"],
+            duration_min=duration_min,
         )
 
     # Membresía vigente (descontando cupos si el plan tiene límite)
@@ -147,6 +178,7 @@ def checkin(
 
     return CheckinResult(
         ok=True,
+        action="checkin",
         message=message,
         member_id=member.id,
         member_name=member.full_name,
@@ -211,7 +243,8 @@ def today_checkins(
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict]:
     sql = (
-        "SELECT c.id, c.member_id, m.full_name AS member_name, b.name AS branch_name, "
+        "SELECT c.id, c.member_id, m.full_name AS member_name, m.photo_url, "
+        "b.name AS branch_name, "
         "c.checked_at, c.checked_out_at, c.duration_min "
         "FROM checkins c "
         "JOIN members m ON m.id = c.member_id "

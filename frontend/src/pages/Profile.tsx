@@ -105,7 +105,7 @@ export function Profile() {
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle>Datos de la cuenta</CardTitle>
-            <CardDescription>
+            <CardDescription className="break-all">
               {me?.email} · {me?.role} {me?.branch_name ? `· ${me.branch_name}` : ''}
             </CardDescription>
           </CardHeader>

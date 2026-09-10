@@ -90,7 +90,7 @@ def test_lead_conversion_creates_member(db_session, make_gym):
 # --------------------------------------------------------------------------
 
 
-def test_share_token_resolution_and_expiry(db_session, make_gym, make_member):
+def test_share_token_resolution_and_revocation(db_session, make_gym, make_member):
     from datetime import UTC, datetime, timedelta
 
     from fastapi import HTTPException
@@ -106,13 +106,21 @@ def test_share_token_resolution_and_expiry(db_session, make_gym, make_member):
     resolved = _resolve_member(db_session, "tok-vigente")
     assert resolved.id == member.id
 
+    # El enlace ya NO expira: una fecha pasada NO invalida el acceso.
     member.share_expires_at = datetime.now(UTC) - timedelta(days=1)
+    db_session.commit()
+    resolved = _resolve_member(db_session, "tok-vigente")
+    assert resolved.id == member.id
+
+    # Revocación manual (share_token = NULL): el enlace deja de funcionar.
+    member.share_token = None
+    member.share_expires_at = None
     db_session.commit()
     try:
         _resolve_member(db_session, "tok-vigente")
-        raise AssertionError("debería rechazar el token expirado")
+        raise AssertionError("debería rechazar el token revocado")
     except HTTPException as exc:
-        assert exc.status_code == 410
+        assert exc.status_code == 404
 
 
 def test_streak_calculation(db_session, make_gym, make_member):

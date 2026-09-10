@@ -287,11 +287,19 @@ export function Members() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{m.email ?? '—'}</span>
+                      <span
+                        className="block max-w-[18rem] truncate text-sm"
+                        title={m.email ?? undefined}
+                      >
+                        {m.email ?? '—'}
+                      </span>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {m.membership?.plan_name ? (
-                        <span className="text-sm">
+                        <span
+                          className="block max-w-[12rem] truncate text-sm"
+                          title={m.membership.plan_name}
+                        >
                           <span className="font-medium">{m.membership.plan_name}</span>
                           {m.membership.expires_at && (
                             <span className="ml-1 text-xs text-muted-foreground">

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link2, QrCode, RefreshCw } from 'lucide-react'
+import { Link2, QrCode, RefreshCw, ShieldOff } from 'lucide-react'
 import QRCode from 'qrcode'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   Dialog,
   DialogContent,
@@ -16,8 +17,8 @@ import { apiFetch } from '@/lib/api'
 
 interface ShareInfo {
   share_url: string
-  expires_at: string
-  expires_in_days: number
+  expires_at: string | null
+  expires_in_days: number | null
 }
 
 export function ShareDialog({
@@ -35,9 +36,14 @@ export function ShareDialog({
   const [loading, setLoading] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [confirmRevoke, setConfirmRevoke] = useState(false)
+  const [revoking, setRevoking] = useState(false)
   const { toast } = useToast()
 
   const absolute = share ? `${window.location.origin}${share.share_url}` : null
+  // QR de check-in: codifica el UUID del socio (permanente). No depende del
+  // share token, así que regenerar/revocar el enlace del portal NO lo rompe.
+  const qrValue = `gymcore:member:${memberId}`
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -54,25 +60,21 @@ export function ShareDialog({
   useEffect(() => {
     if (open) {
       setShare(null)
-      setQr(null)
       setCopied(false)
       load()
     }
   }, [open, load])
 
   useEffect(() => {
-    if (!absolute) {
-      setQr(null)
-      return
-    }
+    if (!open) return
     let cancelled = false
-    QRCode.toDataURL(absolute, { width: 220, margin: 1, color: { dark: '#161512' } }).then((url) => {
+    QRCode.toDataURL(qrValue, { width: 220, margin: 1, color: { dark: '#161512' } }).then((url) => {
       if (!cancelled) setQr(url)
     })
     return () => {
       cancelled = true
     }
-  }, [absolute])
+  }, [qrValue, open])
 
   const generate = async (rotate = false) => {
     setLoading(true)
@@ -108,6 +110,29 @@ export function ShareDialog({
     }
   }
 
+  const revoke = async () => {
+    setRevoking(true)
+    try {
+      await apiFetch(`/members/${memberId}/share`, { method: 'DELETE' })
+      setShare(null)
+      toast({
+        title: 'Acceso al portal revocado',
+        description:
+          'El enlace del portal dejó de funcionar. El QR de check-in sigue activo.',
+        variant: 'success',
+      })
+    } catch (err) {
+      toast({
+        title: 'No se pudo revocar',
+        description: err instanceof Error ? err.message : 'Intenta de nuevo.',
+        variant: 'error',
+      })
+    } finally {
+      setRevoking(false)
+      setConfirmRevoke(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
@@ -116,68 +141,91 @@ export function ShareDialog({
             <QrCode className="size-5 text-primary" /> Acceso del socio
           </DialogTitle>
           <DialogDescription>
-            Genera un enlace (60 días) para que {memberName} entre a su portal: foto, QR de
-            check-in, rachas, historial y registro de peso.
+            El QR de check-in del socio y, si quieres, un enlace para que entre a su portal (foto,
+            rachas, historial y registro de peso).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* QR de check-in (permanente, independiente del enlace del portal) */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="mb-3 text-sm font-medium text-foreground">QR de check-in</p>
+            <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
+              <div className="shrink-0 self-center rounded-lg border border-border bg-white p-2">
+                {qr ? (
+                  <img src={qr} alt={`QR de ${memberName}`} className="size-44" />
+                ) : (
+                  <div className="size-44 animate-pulse bg-muted" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Badge variant="soft-success">Permanente · para check-in</Badge>
+                <p className="text-xs text-muted-foreground">
+                  El socio muestra este QR en recepción para registrar su entrada y salida. No cambia
+                  ni expira, y no se ve afectado al regenerar o revocar el enlace del portal.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Portal: enlace de invitación (sin vencimiento, revocable) */}
           {loading && !share && (
-            <p className="py-6 text-center text-sm text-muted-foreground">Verificando invitación…</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              Verificando invitación…
+            </p>
           )}
 
           {!loading && !share && (
             <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Aún no hay invitación activa para este socio.
+                {memberName} aún no tiene enlace para entrar a su portal (foto, rachas, historial y
+                peso).
               </p>
               <Button className="mt-3" size="sm" onClick={() => generate(false)} disabled={loading}>
-                <Link2 /> Generar invitación
+                <Link2 /> Generar enlace del portal
               </Button>
             </div>
           )}
 
           {share && absolute && (
-            <>
-              <div className="flex flex-col items-stretch gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center">
-                <div className="shrink-0 self-center rounded-lg border border-border bg-white p-2">
-                  {qr ? (
-                    <img src={qr} alt={`QR de ${memberName}`} className="size-44" />
-                  ) : (
-                    <div className="size-44 animate-pulse bg-muted" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Badge variant="soft-success">Vigente · {share.expires_in_days} días</Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Vence el{' '}
-                    {new Date(share.expires_at).toLocaleDateString('es-MX', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </p>
-                  <p className="break-all rounded-md border border-border bg-muted/40 px-2 py-1.5 font-mono text-xs text-foreground">
-                    {absolute}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={copy}>
-                      {copied ? 'Copiado' : 'Copiar enlace'}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => generate(true)} disabled={loading}>
-                      <RefreshCw /> Regenerar
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                El enlace del portal es personal. Al regenerarlo, el anterior deja de funcionar. El
-                QR de arriba es el que el socio muestra en recepción para hacer check-in.
+            <div className="space-y-2 rounded-xl border border-border bg-card p-4">
+              <p className="text-sm font-medium text-foreground">
+                Enlace del portal · sin vencimiento
               </p>
-            </>
+              <p className="break-all rounded-md border border-border bg-muted/40 px-2 py-1.5 font-mono text-xs text-foreground">
+                {absolute}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={copy}>
+                  {copied ? 'Copiado' : 'Copiar enlace'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => generate(true)} disabled={loading}>
+                  <RefreshCw /> Regenerar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => setConfirmRevoke(true)}
+                >
+                  <ShieldOff /> Revocar
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>
+
+      <ConfirmDialog
+        open={confirmRevoke}
+        onOpenChange={(open) => !open && setConfirmRevoke(false)}
+        title="¿Revocar el enlace del portal?"
+        description="El enlace del portal dejará de funcionar de inmediato. El QR de check-in sigue activo."
+        confirmLabel="Revocar"
+        variant="destructive"
+        busy={revoking}
+        onConfirm={revoke}
+      />
     </Dialog>
   )
 }

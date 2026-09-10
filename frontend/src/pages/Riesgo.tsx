@@ -167,7 +167,9 @@ export function Riesgo() {
                       {m.full_name}
                     </Link>
                     {m.email && (
-                      <p className="text-xs text-muted-foreground">{m.email}</p>
+                      <p className="max-w-[16rem] truncate text-xs text-muted-foreground" title={m.email}>
+                        {m.email}
+                      </p>
                     )}
                   </TableCell>
                   <TableCell>{m.membership_name ?? '—'}</TableCell>
