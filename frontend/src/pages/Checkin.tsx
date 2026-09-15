@@ -18,7 +18,7 @@ export function Checkin() {
     <AppLayout>
     <div className="mx-auto w-full max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Check-in</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Check-in's</h1>
         <p className="text-sm text-muted-foreground">
           Registra la entrada de socios por nombre o escaneando su código QR
         </p>
@@ -27,7 +27,7 @@ export function Checkin() {
       <Tabs defaultValue="scanner" className="space-y-4">
         <TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 sm:w-auto sm:overflow-visible">
           <TabsTrigger value="scanner">
-            <QrCode className="size-4" /> Check-in QR
+            <QrCode className="size-4" /> Check-in's QR
           </TabsTrigger>
           <TabsTrigger value="today">
             <History className="size-4" /> Check-ins de hoy

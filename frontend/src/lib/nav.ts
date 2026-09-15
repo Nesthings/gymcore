@@ -37,7 +37,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { to: '/socios', label: 'Socios', component: 'socios' },
   { to: '/membresias', label: 'Membresías', component: 'membresias' },
   { to: '/pagos', label: 'Pagos', component: 'finanzas' },
-  { to: '/checkin', label: 'Check-in', component: 'checkin' },
+  { to: '/checkin', label: "Check-in's", component: 'checkin' },
   { to: '/crm', label: 'CRM', component: 'crm' },
   { to: '/productos', label: 'Productos', component: 'productos' },
   { to: '/ventas', label: 'Ventas', component: 'ventas' },
