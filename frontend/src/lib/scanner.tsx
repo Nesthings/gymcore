@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import QrScanner from 'qr-scanner'
 import workerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 
@@ -80,7 +79,6 @@ const STAFF_ROLES = ['admin', 'recepcion', 'coach']
 export function ScannerProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { toast } = useToast()
-  const location = useLocation()
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -108,9 +106,8 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
   const scanCountRef = useRef(0)
   const [scanRate, setScanRate] = useState(0)
 
-  // Excepción: en la ficha/credencial del socio NO se enciende la cámara
-  // (evita pedir el permiso al revisar la credencial del socio).
-  const isMemberDetail = /^\/socios\/[^/]+\/?$/.test(location.pathname)
+  // Excepción: la ficha/credencial del socio NO apaga la cámara. El lector es
+  // un proceso de fondo que permanece activo en TODAS las páginas del staff.
 
   const storageKey = `${PREF_KEY}:${user?.sub ?? 'guest'}`
 
@@ -347,20 +344,21 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [enabled])
 
-  // Auto-inicio para el staff en TODAS las páginas (proceso de fondo), con una
-  // única excepción: la ficha/credencial del socio (/socios/:id), donde la
-  // cámara se apaga para no pedir el permiso al revisar la credencial.
-  // Si el usuario lo encendió manualmente (toggle), se mantiene al navegar.
+  // Guarda de sesión: fuera del staff o sin sesión se apaga el lector.
   useEffect(() => {
-    if (!user || !STAFF_ROLES.includes(user.role)) return
-    if (isMemberDetail) {
-      // Excepción: forzar apagado en la ficha del socio.
+    if (!user || !STAFF_ROLES.includes(user.role)) {
       manualRef.current = false
       stopScanner()
       setEnabled(false)
-      return
     }
-    if (manualRef.current) return
+  }, [user, stopScanner])
+
+  // Auto-inicio (proceso de fondo) para el staff en TODAS las páginas.
+  // NO depende de la ruta: una vez arrancado, navegar no lo detiene; solo el
+  // toggle (o cerrar sesión) lo apaga.
+  useEffect(() => {
+    if (!user || !STAFF_ROLES.includes(user.role)) return
+    if (manualRef.current || enabled) return
     let stored: string | null = null
     try {
       stored = localStorage.getItem(storageKey)
@@ -406,12 +404,13 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
       window.clearTimeout(timer)
-      if (!manualRef.current) {
-        stopScanner()
-        setEnabled(false)
-      }
     }
-  }, [isMemberDetail, storageKey, user, start, stopScanner, toast])
+  }, [user, storageKey, enabled, start, toast])
+
+  // Al desmontar (cierre de sesión / cierre de la app) se libera la cámara.
+  useEffect(() => {
+    return () => stopScanner()
+  }, [stopScanner])
 
   // Lector USB dedicado tipo teclado (keyboard-wedge): el dispositivo "escribe"
   // el código a velocidad máquina y envía Enter. Se bufferiza la ráfaga y se
