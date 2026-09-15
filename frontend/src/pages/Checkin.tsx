@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
-import { History, QrCode, Ticket } from 'lucide-react'
+import { History, QrCode } from 'lucide-react'
 
-import { PassRedeem } from '@/components/checkin/PassRedeem'
 import { CheckinScanner } from '@/components/checkin/CheckinScanner'
 import { TodayCheckins } from '@/components/checkin/TodayCheckins'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -33,9 +32,6 @@ export function Checkin() {
           <TabsTrigger value="today">
             <History className="size-4" /> Check-ins de hoy
           </TabsTrigger>
-          <TabsTrigger value="passes">
-            <Ticket className="size-4" /> Canjear pase
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="scanner">
@@ -43,7 +39,8 @@ export function Checkin() {
             <CardHeader>
               <CardTitle className="text-base">Registrar entrada</CardTitle>
               <CardDescription>
-                Busca al socio por nombre o correo, o escanea el código QR de su credencial.
+                Busca al socio por nombre o correo, o escanea el código QR de su credencial. Los
+                pases de invitado se canjean solos con el lector continuo.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -56,27 +53,10 @@ export function Checkin() {
           <Card className="rounded-2xl">
             <CardHeader>
               <CardTitle className="text-base">Visitas de hoy</CardTitle>
-              <CardDescription>Registro en tiempo real de los check-ins del día.</CardDescription>
+              <CardDescription>Registro en tiempo real de entradas y salidas del día.</CardDescription>
             </CardHeader>
             <CardContent>
               <TodayCheckins refreshKey={refreshKey} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="passes">
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Ticket className="size-4 text-primary" /> Canjear pase de invitado
-              </CardTitle>
-              <CardDescription>
-                El invitado muestra el QR o te pasa el token de su pase; al canjearlo entra y se crea
-                un lead automáticamente en el CRM.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PassRedeem />
             </CardContent>
           </Card>
         </TabsContent>
