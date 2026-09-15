@@ -7,6 +7,7 @@ import { InactivityGuard } from '@/lib/session'
 import { ThemeProvider } from '@/lib/theme'
 import { DashboardConfigProvider } from '@/lib/dashboard-config'
 import { NavConfigProvider } from '@/lib/nav-config'
+import { ModuleDnDProvider } from '@/lib/module-dnd'
 import { PermissionsProvider } from '@/lib/permissions'
 import { SetupProvider } from '@/lib/setup'
 import { GymMetaProvider } from '@/lib/gym-meta'
@@ -77,6 +78,7 @@ function App() {
           <SetupProvider>
             <GymMetaProvider>
               <NavConfigProvider>
+                <ModuleDnDProvider>
                 <DashboardConfigProvider>
                   <BrowserRouter>
                   <ScannerProvider>
@@ -244,6 +246,7 @@ function App() {
                   </ScannerProvider>
                   </BrowserRouter>
                 </DashboardConfigProvider>
+                </ModuleDnDProvider>
             </NavConfigProvider>
             </GymMetaProvider>
           </SetupProvider>

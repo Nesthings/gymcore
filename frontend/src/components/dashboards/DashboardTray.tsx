@@ -67,7 +67,7 @@ export function DashboardTray({
               e.dataTransfer.effectAllowed = 'move'
             }}
             title="Arrastra a la zona de dashboards para dibujarlo"
-            className="flex cursor-grab items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2 transition-colors hover:bg-accent/50 active:cursor-grabbing"
+            className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2 transition-colors hover:bg-accent/50"
           >
             <GripVertical className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div className="min-w-0 flex-1">

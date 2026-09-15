@@ -32,6 +32,7 @@ import { useAuth } from '@/lib/auth'
 import { usePermissions } from '@/lib/permissions'
 import { useNavConfig } from '@/lib/nav-config'
 import { useDashboardConfig } from '@/lib/dashboard-config'
+import { useModuleDnD } from '@/lib/module-dnd'
 import { DASHBOARD_CATALOG, getDashboard } from '@/lib/dashboards'
 import { MODULE_META, NAV_ROUTES } from '@/lib/nav'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -90,16 +91,14 @@ function KpiCard({
   hint?: string
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-3.5 shadow-card">
+    <div className="rounded-xl border border-border bg-card p-3.5 shadow-card">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
         <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="size-3.5" aria-hidden="true" />
         </span>
       </div>
-      <p className="stat-number mt-1.5 text-2xl font-bold tracking-tight text-foreground">
-        {value}
-      </p>
+      <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
@@ -143,7 +142,7 @@ function SectionFrame({
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
           title={`Mover sección: ${label} (arrastra o usa las flechas)`}
-          className="inline-flex cursor-grab items-center gap-1 rounded px-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground opacity-60 transition hover:bg-accent hover:text-foreground hover:opacity-100 active:cursor-grabbing max-md:opacity-100"
+          className="inline-flex cursor-pointer items-center gap-1 rounded px-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground opacity-60 transition hover:bg-accent hover:text-foreground hover:opacity-100 max-md:opacity-100"
         >
           <GripVertical className="size-3.5" aria-hidden="true" />
           {label}
@@ -178,9 +177,13 @@ export function Dashboard() {
   const { user } = useAuth()
   const [summary, setSummary] = useState<GymSummary | null>(null)
   const { hasComponent } = usePermissions()
-  const { pinned, unpin } = useNavConfig()
+  const { pinned } = useNavConfig()
   const { active, add, remove } = useDashboardConfig()
-  const [modulesDragOver, setModulesDragOver] = useState(false)
+  const {
+    start: startModuleDrag,
+    dragging: draggingModule,
+    consumeDragClick,
+  } = useModuleDnD()
   const [trayOpen, setTrayOpen] = useState(false)
   const [gridDragOver, setGridDragOver] = useState(false)
   const [trayBtnDragOver, setTrayBtnDragOver] = useState(false)
@@ -258,6 +261,11 @@ export function Dashboard() {
     })
   }
 
+  // Solo se usa para reordenar secciones (drag nativo del encabezado).
+  const handleSectionDrop = (target: SectionId) => {
+    if (dragSection) dropOnSection(target)
+  }
+
   const loadSummary = useCallback(async () => {
     if (!user?.gym_id) return
     try {
@@ -303,13 +311,6 @@ export function Dashboard() {
     const bi = MODULE_CARD_ORDER.indexOf(b.component)
     return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
   })
-
-  const handleModulesDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setModulesDragOver(false)
-    const component = e.dataTransfer.getData('text/plain')
-    if (component) unpin(component)
-  }
 
   const availableDashboards = DASHBOARD_CATALOG.filter((d) => !active.includes(d.slug))
 
@@ -398,15 +399,13 @@ export function Dashboard() {
                 setDragOverSection(null)
               }}
               onDragOver={(e) => {
-                if (dragSection && dragSection !== id) {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  setDragOverSection(id)
-                }
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                if (dragSection && dragSection !== id) setDragOverSection(id)
               }}
               onDrop={(e) => {
                 e.preventDefault()
-                dropOnSection(id)
+                handleSectionDrop(id)
               }}
               highlighted={Boolean(dragSection && dragSection !== id && dragOverSection === id)}
             >
@@ -429,48 +428,53 @@ export function Dashboard() {
                 SECTION_LABELS.modulos,
                 <>
                   <div
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      e.dataTransfer.dropEffect = 'move'
-                      setModulesDragOver(true)
-                    }}
-                    onDragLeave={() => setModulesDragOver(false)}
-                    onDrop={handleModulesDrop}
+                    data-drop-zone="modules"
                     className={cn(
-                      'grid grid-cols-2 gap-4 rounded-xl sm:grid-cols-3 lg:grid-cols-4',
-                      modulesDragOver && 'outline-2 outline-dashed outline-primary/40',
+                      'grid min-h-24 grid-cols-2 gap-4 rounded-xl sm:grid-cols-3 lg:grid-cols-4',
+                      draggingModule && 'outline-2 outline-dashed outline-primary/40',
                     )}
                   >
                     {moduleItems.map((m) => {
                       const meta = MODULE_META[m.component]
                       return (
-                        <Link
+                        <div
                           key={m.to}
-                          to={m.to}
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/plain', m.component)
-                            e.dataTransfer.effectAllowed = 'move'
-                          }}
+                          onPointerDown={(e) => startModuleDrag(m.component, e)}
                           title="Arrastra a la barra lateral para fijarlo"
-                          className="group flex cursor-grab flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-card transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-glow active:cursor-grabbing"
+                          className="select-none"
                         >
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={cn(
-                                'flex size-10 shrink-0 items-center justify-center rounded-xl',
-                                meta.iconBg,
-                              )}
-                            >
+                          <Link
+                            to={m.to}
+                            draggable={false}
+                            onClick={(e) => {
+                              if (consumeDragClick()) e.preventDefault()
+                            }}
+                            className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-card transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-glow"
+                          >
+                            <div className="relative aspect-[4/3] w-full overflow-hidden bg-secondary/40">
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div
+                                  className={cn(
+                                    'flex size-16 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105',
+                                    meta.iconBg,
+                                  )}
+                                >
+                                  <meta.icon
+                                    className={cn('size-8', meta.text)}
+                                    aria-hidden="true"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
                               <meta.icon
-                                className={cn('size-5', meta.text)}
+                                className={cn('size-4 shrink-0', meta.text)}
                                 aria-hidden="true"
                               />
-                            </span>
-                            <p className="truncate text-sm font-semibold">{m.label}</p>
-                          </div>
-                          <p className="line-clamp-2 text-xs text-muted-foreground">{meta.desc}</p>
-                        </Link>
+                              <p className="truncate text-sm font-semibold">{m.label}</p>
+                            </div>
+                          </Link>
+                        </div>
                       )
                     })}
                     {moduleItems.length === 0 && (
@@ -572,7 +576,7 @@ export function Dashboard() {
                               e.dataTransfer.effectAllowed = 'move'
                             }}
                             title="Arrastra a la bandeja para quitarlo"
-                            className="group relative cursor-grab gap-3 active:cursor-grabbing"
+                            className="group relative cursor-pointer gap-3"
                           >
                             <CardHeader className="flex-row items-start justify-between gap-2 space-y-0 pb-0">
                               <CardTitle className="font-display text-base">{def.title}</CardTitle>

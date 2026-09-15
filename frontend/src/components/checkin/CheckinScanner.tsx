@@ -44,7 +44,7 @@ export function CheckinScanner({
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState<CheckinResult | null>(null)
   const { toast } = useToast()
-  const { enabled: scannerEnabled } = useScanner()
+  const { enabled: scannerEnabled, scanRate } = useScanner()
 
   // Si el lector continuo está activo, no abrimos el escáner manual (una sola
   // cámara en uso).
@@ -272,6 +272,7 @@ export function CheckinScanner({
                 <span className="relative inline-flex size-2.5 rounded-full bg-success" />
               </span>
               Lector automático activo: escanea el QR del socio y se registra solo.
+              <span className="ml-1 text-muted-foreground">(~{scanRate}/s)</span>
             </p>
           )}
 

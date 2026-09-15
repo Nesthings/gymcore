@@ -13,7 +13,9 @@ import { playBeep, playCheckin, playCheckout } from '@/lib/beep'
 QrScanner.WORKER_PATH = workerPath
 
 const DEBOUNCE_MS = 8_000 // 8s: evita duplicados si el QR queda frente a la cámara, sin sentirse "muerto"
-const PREF_KEY = 'gymcore_scanner_enabled'
+// v2: la versión anterior guardaba '0' ante fallos transitorios y dejaba el
+// lector desactivado de forma permanente; la nueva clave descarta ese estado.
+const PREF_KEY = 'gymcore_scanner_enabled_v2'
 // Arranque por defecto para el staff: el lector continuo es un proceso de fondo.
 // Solo se apaga si el usuario lo desactiva explícitamente (se guarda la preferencia).
 const DEFAULT_ENABLED = true
@@ -66,6 +68,7 @@ interface ScannerValue {
   enabled: boolean
   activating: boolean
   lastResult: ScanResult | null
+  scanRate: number
   enable: () => Promise<void>
   disable: () => void
 }
@@ -81,6 +84,17 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  // Generación del arranque: invalida un `start()` en vuelo cuando se detiene,
+  // evitando dejar la cámara encendida (leak) en el doble montaje de StrictMode.
+  const genRef = useRef(0)
+  const warnedRef = useRef(false)
+  // Buffer del lector USB tipo teclado (keyboard-wedge): acumula la ráfaga y
+  // la procesa al Enter.
+  const wedgeRef = useRef<{ buffer: string; last: number; fast: boolean }>({
+    buffer: '',
+    last: 0,
+    fast: true,
+  })
   const debounceRef = useRef<Map<string, number>>(new Map())
   const processRef = useRef<(decoded: string) => void>(() => {})
   // ¿El lector fue encendido MANUALMENTE (toggle)? Si es así se mantiene al
@@ -90,6 +104,9 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
   const [enabled, setEnabled] = useState(false)
   const [activating, setActivating] = useState(false)
   const [lastResult, setLastResult] = useState<ScanResult | null>(null)
+  // Diagnóstico: intentos de escaneo por segundo (para saber si el bucle corre).
+  const scanCountRef = useRef(0)
+  const [scanRate, setScanRate] = useState(0)
 
   // Excepción: en la ficha/credencial del socio NO se enciende la cámara
   // (evita pedir el permiso al revisar la credencial del socio).
@@ -97,13 +114,41 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
 
   const storageKey = `${PREF_KEY}:${user?.sub ?? 'guest'}`
 
+  const stopVideoStream = useCallback(() => {
+    const v = videoRef.current
+    if (v && v.srcObject instanceof MediaStream) {
+      v.srcObject.getTracks().forEach((t) => t.stop())
+      v.srcObject = null
+    }
+  }, [])
+
+  const safeDestroy = useCallback((s: QrScanner | null) => {
+    // Destruye sin lanzar (un scanner ya destruido o a medio arrancar no debe
+    // romper el flujo).
+    if (!s) return
+    try {
+      s.stop()
+    } catch {
+      // ignorar
+    }
+    try {
+      s.destroy()
+    } catch {
+      // ignorar
+    }
+  }, [])
+
   const stopScanner = useCallback(() => {
-    scannerRef.current?.stop()
-    scannerRef.current?.destroy()
+    // Invalida cualquier start() en vuelo y apaga el video para no filtrar el
+    // stream de cámara (StrictMode monta dos veces los efectos).
+    genRef.current += 1
+    const s = scannerRef.current
     scannerRef.current = null
+    safeDestroy(s)
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
-  }, [])
+    stopVideoStream()
+  }, [safeDestroy, stopVideoStream])
 
   // Procesa un QR decodificado: socio -> check-in, pase -> canje.
   const process = useCallback(
@@ -181,21 +226,72 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     processRef.current = process
   }, [process])
 
+  // Calcula la tasa de escaneo (intentos/segundo) cada segundo.
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      setScanRate(scanCountRef.current)
+      scanCountRef.current = 0
+    }, 1000)
+    return () => window.clearInterval(t)
+  }, [])
+
   const start = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Cámara no disponible en este dispositivo')
     if (!videoRef.current) throw new Error('No se pudo montar el video del lector')
-    // NO abrimos un stream previo: QrScanner.start() abre su propia cámara.
-    // (Si el video ya tiene un stream, start() solo lo reproduce y detenerlo
-    // después apagaría la cámara — LED off, sin decodificación.)
-    const scanner = new QrScanner(videoRef.current, (decoded) => processRef.current(decoded))
+    const myGen = ++genRef.current
+    // Limpia cualquier instancia previa antes de abrir una cámara nueva.
+    const prev = scannerRef.current
+    scannerRef.current = null
+    safeDestroy(prev)
+    stopVideoStream()
+    // QrScanner abre y gestiona su propia cámara (no pre-asignamos srcObject:
+    // hacerlo degradaba el arranque del bucle de escaneo). Configuración
+    // optimizada para rapidez:
+    //  - región = marco completo (cobertura)
+    //  - canvas de decodificación acotado a ~512 px (decodifica muy rápido)
+    //  - 30 escaneos/segundo
+    const scanner = new QrScanner(
+      videoRef.current,
+      (result: QrScanner.ScanResult) => {
+        scanCountRef.current += 1
+        processRef.current(result.data)
+      },
+      {
+        maxScansPerSecond: 30,
+        onDecodeError: () => {
+          // Cuenta cada intento de escaneo (incluye "sin QR"), para diagnóstico.
+          scanCountRef.current += 1
+        },
+        calculateScanRegion: (v) => {
+          const w = v.videoWidth || 640
+          const h = v.videoHeight || 480
+          const target = Math.min(Math.max(w, 400), 512)
+          return {
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+            downScaledWidth: target,
+            downScaledHeight: Math.max(1, Math.round((target * h) / w)),
+          }
+        },
+      },
+    )
     scannerRef.current = scanner
     try {
       await scanner.start()
     } catch (err) {
-      scannerRef.current = null
+      if (scannerRef.current === scanner) scannerRef.current = null
+      safeDestroy(scanner)
+      stopVideoStream()
       throw err
     }
-  }, [])
+    // Si mientras arrancaba se detuvo (StrictMode/navegación), apaga la cámara.
+    if (myGen !== genRef.current || scannerRef.current !== scanner) {
+      safeDestroy(scanner)
+      stopVideoStream()
+    }
+  }, [safeDestroy, stopVideoStream])
 
   const enable = useCallback(async () => {
     if (activating) return
@@ -216,11 +312,6 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       stopScanner()
       setEnabled(false)
-      try {
-        localStorage.setItem(storageKey, '0')
-      } catch {
-        // sin almacenamiento
-      }
       toast({
         title: 'No se pudo activar el lector',
         description: err instanceof Error ? err.message : 'Intenta de nuevo.',
@@ -278,30 +369,116 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     }
     if (stored === '0' || (!DEFAULT_ENABLED && stored !== '1')) return
     let cancelled = false
-    ;(async () => {
+    // Arranque diferido: evita abrir la cámara dos veces por el doble montaje
+    // de efectos de React StrictMode en desarrollo.
+    const timer = window.setTimeout(async () => {
+      if (cancelled) return
       try {
         await start()
         if (!cancelled) setEnabled(true)
+        return
       } catch {
-        try {
-          localStorage.setItem(storageKey, '0')
-        } catch {
-          // sin almacenamiento
+        // primer intento fallido (p. ej. cámara ocupada): reintenta una vez.
+      }
+      await new Promise((r) => window.setTimeout(r, 800))
+      if (cancelled) return
+      try {
+        await start()
+        if (!cancelled) setEnabled(true)
+      } catch (err) {
+        if (cancelled) return
+        setEnabled(false)
+        // NO se persiste '0': un fallo transitorio no debe desactivar el
+        // lector de forma permanente. Se avisa una sola vez por sesión.
+        if (!warnedRef.current) {
+          warnedRef.current = true
+          toast({
+            title: 'No se pudo activar el lector QR',
+            description:
+              err instanceof Error
+                ? err.message
+                : 'Revisa el permiso de cámara o usa el botón QR de la barra.',
+            variant: 'error',
+          })
         }
       }
-    })()
+    }, 200)
     return () => {
       cancelled = true
+      window.clearTimeout(timer)
       if (!manualRef.current) {
         stopScanner()
         setEnabled(false)
       }
     }
-  }, [isMemberDetail, storageKey, user, start, stopScanner])
+  }, [isMemberDetail, storageKey, user, start, stopScanner, toast])
+
+  // Lector USB dedicado tipo teclado (keyboard-wedge): el dispositivo "escribe"
+  // el código a velocidad máquina y envía Enter. Se bufferiza la ráfaga y se
+  // procesa por el mismo flujo que la cámara (check-in / canje). Coexiste con
+  // la cámara y no interfiere con el tipeo humano.
+  useEffect(() => {
+    if (!user || !STAFF_ROLES.includes(user.role)) return
+    const FAST_MS = 120 // gap máximo entre teclas de una ráfaga de lector
+    const RESET_MS = 400 // si tarda más, se considera tecleo humano/otra cosa
+
+    const strongToken = (v: string) =>
+      v.startsWith('gymcore:member:') ||
+      v.startsWith('gymcore:pass:') ||
+      v.includes('token=') ||
+      v.includes('/m?') ||
+      v.includes('/g?') ||
+      /^[0-9a-fA-F-]{32,36}$/.test(v)
+
+    const onKey = (e: KeyboardEvent) => {
+      // Ignora atajos (Ctrl/Meta/Alt) y teclas de control.
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const state = wedgeRef.current
+      const now = performance.now()
+
+      if (e.key === 'Enter') {
+        const buf = state.buffer
+        const fast = state.fast
+        state.buffer = ''
+        state.last = 0
+        state.fast = true
+        // Acepta ráfagas rápidas largas o tokens inequívocos (URL/prefix/UUID).
+        if (buf && ((fast && buf.length >= 12) || strongToken(buf))) {
+          e.preventDefault()
+          processRef.current(buf)
+        }
+        return
+      }
+      if (e.key === 'Escape') {
+        state.buffer = ''
+        state.last = 0
+        state.fast = true
+        return
+      }
+      // Solo caracteres imprimibles.
+      if (e.key.length !== 1) return
+
+      const gap = now - state.last
+      if (state.buffer === '' || gap > RESET_MS) {
+        state.buffer = e.key
+        state.fast = true
+      } else {
+        if (gap > FAST_MS) state.fast = false
+        state.buffer += e.key
+      }
+      state.last = now
+      // Durante una ráfaga (probable lector), evita que el texto caiga en un
+      // input (p. ej. el buscador). El tipeo humano no se ve afectado.
+      if (state.fast && state.buffer.length >= 2) e.preventDefault()
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [user])
 
   return (
     <ScannerContext.Provider
-      value={{ enabled, activating, lastResult, enable, disable }}
+      value={{ enabled, activating, lastResult, scanRate, enable, disable }}
     >
       {/* El video vive invisible pero DENTRO del viewport y con resolución real
       (640x480) para que el navegador lo pinte y qr-scanner decodifique frames

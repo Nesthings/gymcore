@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useAuth } from '@/lib/auth'
 import { useGymMeta } from '@/lib/gym-meta'
+import { useModuleDnD } from '@/lib/module-dnd'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
 import { usePermissions } from '@/lib/permissions'
@@ -44,7 +45,8 @@ const ROLE_LABEL: Record<string, string> = {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
   const { hasComponent } = usePermissions()
-  const { pinned, pin } = useNavConfig()
+  const { pinned } = useNavConfig()
+  const { start: startModuleDrag, consumeDragClick } = useModuleDnD()
   const {
     photoUrl: avatarUrl,
     fullName,
@@ -59,7 +61,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const [sugUnread, setSugUnread] = useState(0)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [navDragOver, setNavDragOver] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === '1'
@@ -117,13 +118,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const principalItems = NAV_ITEMS.filter((i) => i.component === 'dashboard')
   const moduleItems = NAV_ITEMS.filter((i) => i.component !== 'dashboard')
 
-  const handleNavDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setNavDragOver(false)
-    const component = e.dataTransfer.getData('text/plain')
-    if (component && component !== 'dashboard') pin(component)
-  }
-
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
@@ -133,7 +127,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'group flex cursor-grab items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 active:cursor-grabbing',
+      'group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150',
       collapsed && 'justify-center px-2',
       isActive
         ? 'bg-primary/10 text-primary'
@@ -141,30 +135,37 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     )
 
   const renderNavItem = (item: (typeof NAV_ITEMS)[number]) => (
-    <NavLink
+    <div
       key={item.to}
-      to={item.to}
-      end={item.end}
-      draggable={item.component !== 'dashboard'}
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', item.component)
-        e.dataTransfer.effectAllowed = 'move'
+      onPointerDown={(e) => {
+        if (item.component !== 'dashboard') startModuleDrag(item.component, e)
       }}
-      onClick={() => {
-        if (window.innerWidth < 768) setCollapsed(true)
-      }}
-      title={
-        item.component !== 'dashboard'
-          ? collapsed
-            ? item.label
-            : 'Arrastra al Inicio para quitar de la barra'
-          : item.label
-      }
-      className={navLinkClass}
+      className="select-none"
     >
-      <item.icon className="size-[18px] shrink-0" aria-hidden="true" />
-      {!collapsed && <span className="truncate">{item.label}</span>}
-    </NavLink>
+      <NavLink
+        to={item.to}
+        end={item.end}
+        draggable={false}
+        onClick={(e) => {
+          if (consumeDragClick()) {
+            e.preventDefault()
+            return
+          }
+          if (window.innerWidth < 768) setCollapsed(true)
+        }}
+        title={
+          item.component !== 'dashboard'
+            ? collapsed
+              ? item.label
+              : 'Arrastra al Inicio para quitar de la barra'
+            : item.label
+        }
+        className={navLinkClass}
+      >
+        <item.icon className="size-[18px] shrink-0" aria-hidden="true" />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+      </NavLink>
+    </div>
   )
 
   return (
@@ -206,17 +207,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav
-          onDragOver={(e) => {
-            e.preventDefault()
-            e.dataTransfer.dropEffect = 'move'
-            setNavDragOver(true)
-          }}
-          onDragLeave={() => setNavDragOver(false)}
-          onDrop={handleNavDrop}
-          className={cn(
-            'flex-1 space-y-4 overflow-y-auto p-3 transition-colors',
-            navDragOver && 'rounded-lg bg-primary/10 outline-2 outline-dashed outline-primary/40',
-          )}
+          data-drop-zone="sidebar"
+          className="flex-1 space-y-4 overflow-y-auto p-3 transition-colors"
         >
           <div className="space-y-1">
             {!collapsed && (
