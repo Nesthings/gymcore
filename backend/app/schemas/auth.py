@@ -36,6 +36,10 @@ class TwoFactorConfirmRequest(BaseModel):
     code: str = Field(min_length=6, max_length=6)
 
 
+class TwoFactorSetupRequest(BaseModel):
+    regenerate: bool = False
+
+
 class TwoFactorStatusResponse(BaseModel):
     totp_enabled: bool
 

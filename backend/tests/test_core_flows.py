@@ -288,6 +288,47 @@ def test_goal_progress_peso(db_session, make_gym, make_member):
     assert 0 < prog["progress"] < 1
 
 
+def test_totp_setup_reuses_pending_secret_and_verify(db_session, make_gym):
+    import uuid
+
+    import pyotp
+    from sqlalchemy import text
+
+    from app.api.auth import _setup_secret
+    from app.core.security import create_twofa_challenge_token, get_token_payload
+    from app.core.totp import verify_code
+
+    gym, _ = make_gym()
+    uid = str(uuid.uuid4())
+    db_session.execute(
+        text(
+            "INSERT INTO users (id, gym_id, role, full_name, email, password_hash, is_active) "
+            "VALUES (:id, :gid, 'admin', 'Test Admin', 'test2fa@gym.test', 'x', true)"
+        ),
+        {"id": uid, "gid": str(gym.id)},
+    )
+    db_session.commit()
+
+    # El setup NO debe regenerar un secreto pendiente (evita el mismatch de QR).
+    s1 = _setup_secret(db_session, "users", uid, "test2fa@gym.test", False)
+    s2 = _setup_secret(db_session, "users", uid, "test2fa@gym.test", False)
+    assert s1.secret == s2.secret
+    # Con regenerate=True sí genera uno nuevo.
+    s3 = _setup_secret(db_session, "users", uid, "test2fa@gym.test", True)
+    assert s3.secret != s1.secret
+
+    # La verificación acepta el código TOTP del secreto vigente.
+    code = pyotp.TOTP(s3.secret).now()
+    assert verify_code(s3.secret, code) is True
+    assert verify_code(s3.secret, "000000") is False
+
+    # El challenge del paso 1 lleva el sub correcto.
+    token = create_twofa_challenge_token(uid, role="admin")
+    payload = get_token_payload(token)
+    assert payload["purpose"] == "2fa"
+    assert payload["sub"] == uid
+
+
 def test_checkin_qr_resolver_never_500(db_session, make_gym, make_member):
     """El check-in por QR debe resolver UUID, share token o URL sin romper."""
     from datetime import UTC, datetime, timedelta

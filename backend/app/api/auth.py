@@ -32,6 +32,7 @@ from app.schemas.auth import (
     ResetPasswordRequest,
     TwoFactorConfirmRequest,
     TwoFactorRequiredResponse,
+    TwoFactorSetupRequest,
     TwoFactorSetupResponse,
     TwoFactorStatusResponse,
     TwoFactorVerifyRequest,
@@ -315,6 +316,36 @@ def reset_password(
 # ---------------------------------------------------------------------------
 
 
+def _setup_secret(
+    db: Session, table: str, uid: str, email: str, regenerate: bool
+) -> TwoFactorSetupResponse:
+    """Genera un secreto (o reutiliza el pendiente) y lo guarda ANTES de confirmar.
+
+    Reutilizar el secreto pendiente evita el mismatch clásico: si el setup se
+    llama varias veces, el QR mostrado siempre corresponde al secreto guardado
+    (antes, cada llamada regeneraba el secreto e invalidaba QRs ya escaneados).
+    """
+    row = (
+        db.execute(
+            text(f"SELECT totp_secret, totp_enabled FROM {table} WHERE id = :uid"),
+            {"uid": uid},
+        )
+        .mappings()
+        .first()
+    )
+    if row and row["totp_secret"] and not row["totp_enabled"] and not regenerate:
+        secret = row["totp_secret"]
+    else:
+        secret = generate_secret()
+    db.execute(
+        text(f"UPDATE {table} SET totp_secret = :s WHERE id = :uid"),
+        {"s": secret, "uid": uid},
+    )
+    db.commit()
+    uri = build_otpauth_uri(email, secret)
+    return TwoFactorSetupResponse(secret=secret, otpauth_uri=uri, qr_data=qr_data_uri(uri))
+
+
 @router.post(
     "/2fa/verify",
     response_model=LoginResponse,
@@ -444,6 +475,7 @@ def super_admin_2fa_status(
 def super_admin_2fa_setup(
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
+    body: TwoFactorSetupRequest | None = None,
 ) -> TwoFactorSetupResponse:
     if user.role != "super-admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
@@ -453,15 +485,7 @@ def super_admin_2fa_setup(
     ).scalar()
     if not email:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cuenta no encontrada")
-    secret = generate_secret()
-    uri = build_otpauth_uri(email, secret)
-    # Se guarda el secreto ANTES de confirmar para validarlo al escanear el QR.
-    db.execute(
-        text("UPDATE super_admins SET totp_secret = :s WHERE id = :uid"),
-        {"s": secret, "uid": user.sub},
-    )
-    db.commit()
-    return TwoFactorSetupResponse(secret=secret, otpauth_uri=uri, qr_data=qr_data_uri(uri))
+    return _setup_secret(db, "super_admins", user.sub, email, bool(body and body.regenerate))
 
 
 @router.post(
@@ -585,29 +609,16 @@ def me_2fa_status(
 def me_2fa_setup(
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
+    body: TwoFactorSetupRequest | None = None,
 ) -> TwoFactorSetupResponse:
     if user.role == "super-admin":
         email = db.execute(
             text("SELECT email FROM super_admins WHERE id = :uid"),
             {"uid": user.sub},
         ).scalar()
-        secret = generate_secret()
-        uri = build_otpauth_uri(email, secret)
-        db.execute(
-            text("UPDATE super_admins SET totp_secret = :s WHERE id = :uid"),
-            {"s": secret, "uid": user.sub},
-        )
-        db.commit()
-        return TwoFactorSetupResponse(secret=secret, otpauth_uri=uri, qr_data=qr_data_uri(uri))
+        return _setup_secret(db, "super_admins", user.sub, email, bool(body and body.regenerate))
     row = _require_admin_staff(user, db)
-    secret = generate_secret()
-    uri = build_otpauth_uri(row["email"], secret)
-    db.execute(
-        text("UPDATE users SET totp_secret = :s WHERE id = :uid"),
-        {"s": secret, "uid": user.sub},
-    )
-    db.commit()
-    return TwoFactorSetupResponse(secret=secret, otpauth_uri=uri, qr_data=qr_data_uri(uri))
+    return _setup_secret(db, "users", user.sub, row["email"], bool(body and body.regenerate))
 
 
 @router.post(
