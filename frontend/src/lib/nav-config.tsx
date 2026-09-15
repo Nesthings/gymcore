@@ -15,7 +15,6 @@ const DEFAULT_PINNED = [
   'ventas',
   'inteligencia',
   'layout',
-  'soporte',
   'configuracion',
   'auditoria',
 ]

@@ -1,5 +1,4 @@
 import {
-  CircleHelp,
   History,
   LayoutDashboard,
   Map,
@@ -33,7 +32,7 @@ export interface ModuleMeta {
 // Catálogo completo de módulos del panel del gimnasio.
 // Se usa en el sidebar (AppLayout) y en las tarjetas de "Módulos" del Inicio.
 export const NAV_ROUTES: NavRoute[] = [
-  { to: '/dashboard', label: 'Inicio', component: 'dashboard', end: true },
+  { to: '/dashboard', label: 'Dashboard', component: 'dashboard', end: true },
   { to: '/socios', label: 'Socios', component: 'socios' },
   { to: '/membresias', label: 'Membresías', component: 'membresias' },
   { to: '/pagos', label: 'Pagos', component: 'finanzas' },
@@ -41,8 +40,6 @@ export const NAV_ROUTES: NavRoute[] = [
   { to: '/crm', label: 'CRM', component: 'crm' },
   { to: '/productos', label: 'Productos', component: 'productos' },
   { to: '/ventas', label: 'Ventas', component: 'ventas' },
-  { to: '/layout', label: 'Layout', component: 'layout' },
-  { to: '/reportar-problema', label: 'Soporte', component: 'soporte' },
   { to: '/riesgo', label: 'Riesgo', component: 'inteligencia' },
   { to: '/configuracion', label: 'Configuración', component: 'configuracion' },
   { to: '/auditoria', label: 'Auditoría', component: 'auditoria' },
@@ -119,13 +116,6 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     text: 'text-primary',
     iconBg: 'bg-primary/15',
     pageBg: 'from-lime-100/70 dark:from-lime-400/[0.08]',
-  },
-  soporte: {
-    icon: CircleHelp,
-    desc: 'Reportar problemas y ver su estado',
-    text: 'text-stone-700 dark:text-stone-300',
-    iconBg: 'bg-stone-500/15',
-    pageBg: 'from-stone-100/70 dark:from-stone-400/[0.08]',
   },
   configuracion: {
     icon: Settings2,
