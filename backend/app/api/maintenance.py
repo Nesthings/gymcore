@@ -5,15 +5,14 @@ el sistema existente de `InternalNotification`) cuando un mantenimiento está
 próximo o vencido, con deduplicación.
 """
 
-import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentGym, get_current_gym, require_component, require_gym_roles
-from app.api.equipment import _asset_dict, _asset_or_404, _get_layout, _tasks_by_asset
+from app.api.deps import CurrentGym, require_component, require_gym_roles
+from app.api.equipment import _asset_or_404, _get_layout
 from app.core.events import notify_roles, record_audit
 from app.db.session import get_db
 from app.models import (
@@ -43,7 +42,9 @@ MUTATORS = ("admin",)
 
 def _task_or_404(db: Session, gym_id: str, task_id: str) -> MaintenanceTask:
     task = db.scalar(
-        select(MaintenanceTask).where(MaintenanceTask.id == task_id, MaintenanceTask.gym_id == gym_id)
+        select(MaintenanceTask).where(
+            MaintenanceTask.id == task_id, MaintenanceTask.gym_id == gym_id
+        )
     )
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarea no encontrada")
@@ -75,8 +76,13 @@ def add_maintenance_task(
     )
     db.add(task)
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="maintenance_task_created", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="maintenance_task_created",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
         metadata={"task": task.name},
     )
     db.commit()
@@ -106,7 +112,9 @@ def apply_manufacturer_recommendations(
     gid = str(ctx.gym["id"])
     asset = _asset_or_404(db, gid, asset_id)
     if not asset.equipment_model_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El equipo no tiene modelo de catálogo")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="El equipo no tiene modelo de catálogo"
+        )
     recs = db.scalars(
         select(EquipmentModelMaintenanceRecommendation).where(
             EquipmentModelMaintenanceRecommendation.equipment_model_id == asset.equipment_model_id
@@ -138,8 +146,13 @@ def apply_manufacturer_recommendations(
             created += 1
         # Si ya existe, se conserva la configuración del gimnasio (no se pisa)
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="maintenance_recommendations_applied", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="maintenance_recommendations_applied",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
         metadata={"created": created},
     )
     db.commit()
@@ -176,8 +189,13 @@ def complete_maintenance(
     task.next_due_at = completed_at + timedelta(days=task.interval_days)
     task.status = "scheduled"
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="maintenance_completed", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="maintenance_completed",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
         metadata={"task": task.name},
     )
     db.commit()
@@ -197,7 +215,7 @@ def update_maintenance_task(
     db: Session = Depends(get_db),
 ) -> dict:
     gid = str(ctx.gym["id"])
-    asset = _asset_or_404(db, gid, asset_id)
+    _asset_or_404(db, gid, asset_id)
     task = _task_or_404(db, gid, task_id)
     if body.get("disabled"):
         task.status = "disabled"
@@ -223,7 +241,9 @@ def update_maintenance_task(
     return {"ok": True}
 
 
-@router.delete("/equipment/{asset_id}/maintenance/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/equipment/{asset_id}/maintenance/{task_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 def delete_maintenance_task(
     asset_id: str,
     task_id: str,
@@ -242,7 +262,11 @@ def delete_maintenance_task(
 # --------------------------------------------------------------------------
 
 
-@router.post("/equipment/{asset_id}/incidents", response_model=IncidentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/equipment/{asset_id}/incidents",
+    response_model=IncidentRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_incident(
     asset_id: str,
     body: IncidentCreate,
@@ -267,15 +291,23 @@ def create_incident(
     db.add(incident)
     db.flush()
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="incident_created", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="incident_created",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
         metadata={"incident": body.title, "priority": body.priority},
     )
     db.commit()
     db.refresh(incident)
     if body.take_out_of_service:
         notify_roles(
-            db, ctx.gym["id"], ["admin"], "incident",
+            db,
+            ctx.gym["id"],
+            ["admin"],
+            "incident",
             f"{_display_name_for(db, asset)} fue marcado fuera de servicio",
             link=None,
         )
@@ -286,9 +318,10 @@ def create_incident(
 def _display_name_for(db: Session, asset: EquipmentAsset) -> str:
     if asset.custom_name:
         return asset.custom_name
-    return " · ".join(
-        [p for p in (asset.brand_name, asset.model_name or asset.type_name) if p]
-    ) or "Equipo"
+    return (
+        " · ".join([p for p in (asset.brand_name, asset.model_name or asset.type_name) if p])
+        or "Equipo"
+    )
 
 
 @router.get("/incidents/{incident_id}", response_model=IncidentRead)
@@ -303,7 +336,9 @@ def get_incident(
         )
     )
     if incident is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidencia no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Incidencia no encontrada"
+        )
     return incident
 
 
@@ -320,7 +355,9 @@ def update_incident(
         )
     )
     if incident is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incidencia no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Incidencia no encontrada"
+        )
     asset = db.get(EquipmentAsset, incident.equipment_asset_id)
     if body.status:
         incident.status = body.status
@@ -338,8 +375,12 @@ def update_incident(
     if body.back_to_service is True:
         asset.status = "operativo"
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="incident_resolved", entity_type="equipment_asset",
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="incident_resolved",
+        entity_type="equipment_asset",
         entity_id=asset.id if asset else incident.equipment_asset_id,
         metadata={"status": body.status},
     )
@@ -365,18 +406,22 @@ def maintenance_sweep(db: Session) -> int:
     for gid in gym_ids:
         notice = _get_layout(db, str(gid)).notice_days
         window = now + timedelta(days=notice)
-        tasks = db.execute(
-            select(
-                MaintenanceTask.equipment_asset_id,
-                MaintenanceTask.name,
-                MaintenanceTask.next_due_at,
-            ).where(
-                MaintenanceTask.gym_id == gid,
-                MaintenanceTask.status != "disabled",
-                MaintenanceTask.next_due_at.is_not(None),
-                MaintenanceTask.next_due_at <= window,
+        tasks = (
+            db.execute(
+                select(
+                    MaintenanceTask.equipment_asset_id,
+                    MaintenanceTask.name,
+                    MaintenanceTask.next_due_at,
+                ).where(
+                    MaintenanceTask.gym_id == gid,
+                    MaintenanceTask.status != "disabled",
+                    MaintenanceTask.next_due_at.is_not(None),
+                    MaintenanceTask.next_due_at <= window,
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         if not tasks:
             continue
         asset_ids = {t["equipment_asset_id"] for t in tasks}
@@ -385,9 +430,9 @@ def maintenance_sweep(db: Session) -> int:
         ).all()
         by_id = {a.id: a for a in assets}
         admin_ids = db.scalars(
-            select(text("id")).select_from(text("users")).where(
-                text("gym_id = :gid AND role = 'admin' AND is_active = true")
-            ),
+            select(text("id"))
+            .select_from(text("users"))
+            .where(text("gym_id = :gid AND role = 'admin' AND is_active = true")),
             {"gid": gid},
         ).all()
         for t in tasks:

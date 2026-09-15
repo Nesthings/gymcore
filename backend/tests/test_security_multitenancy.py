@@ -16,7 +16,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 
 
 @pytest.fixture(scope="module")
@@ -109,12 +108,14 @@ def test_cross_tenant_equipment_idor(client, db_session, make_gym):
     assert r.status_code == 404, r.text
 
 
-def test_cross_tenant_receipt_idor(client, db_session, make_gym, make_member, make_plan, make_membership):
+def test_cross_tenant_receipt_idor(
+    client, db_session, make_gym, make_member, make_plan, make_membership
+):
     gym_a, _ = make_gym("Gimnasio A")
     gym_b, _ = make_gym("Gimnasio B")
     member_b = make_member(gym_b)
     plan_b = make_plan(gym_b)
-    mm = make_membership(gym_b, member_b, plan_b)
+    make_membership(gym_b, member_b, plan_b)
 
     from app.models import Payment
 
@@ -132,13 +133,20 @@ def test_user_mutations_require_admin(client, db_session, make_gym):
     token_rec, _ = _staff_token(client, db_session, gym, role="recepcion")
     admin = _make_user(db_session, gym, role="admin", email="boss@test.dev")
 
-    r = client.patch(f"/api/v1/users/{admin.id}", headers=_headers(token_rec), json={"job_title": "x"})
+    r = client.patch(
+        f"/api/v1/users/{admin.id}", headers=_headers(token_rec), json={"job_title": "x"}
+    )
     assert r.status_code == 403, r.text
 
     r = client.post(
         "/api/v1/users",
         headers=_headers(token_rec),
-        json={"full_name": "Otro", "email": "other@test.dev", "password": "TestGym123", "role": "recepcion"},
+        json={
+            "full_name": "Otro",
+            "email": "other@test.dev",
+            "password": "TestGym123",
+            "role": "recepcion",
+        },
     )
     assert r.status_code == 403, r.text
 
@@ -155,17 +163,23 @@ def test_branch_mutations_require_admin(client, db_session, make_gym):
 # ---------------------------------------------------------------------------
 
 
-def test_checkin_no_duplicate_session(client, db_session, make_gym, make_member, make_plan, make_membership):
+def test_checkin_no_duplicate_session(
+    client, db_session, make_gym, make_member, make_plan, make_membership
+):
     gym, _ = make_gym()
     member = make_member(gym)
     plan = make_plan(gym)
     make_membership(gym, member, plan)
 
     token, _ = _staff_token(client, db_session, gym)
-    first = client.post("/api/v1/checkin", headers=_headers(token), json={"member_id": str(member.id)})
+    first = client.post(
+        "/api/v1/checkin", headers=_headers(token), json={"member_id": str(member.id)}
+    )
     assert first.status_code == 200 and first.json()["action"] == "checkin", first.text
 
-    second = client.post("/api/v1/checkin", headers=_headers(token), json={"member_id": str(member.id)})
+    second = client.post(
+        "/api/v1/checkin", headers=_headers(token), json={"member_id": str(member.id)}
+    )
     assert second.status_code == 200
     assert second.json()["action"] == "already_in", second.text
 
@@ -201,7 +215,9 @@ def test_read_all_only_marks_own(client, db_session, make_gym):
         .where(InternalNotification.user_id == u2.id, InternalNotification.read_at.is_(None))
         .limit(1)
     )
-    assert u2_unread is not None, "El read-all del usuario 1 no debe marcar leídas las del usuario 2"
+    assert u2_unread is not None, (
+        "El read-all del usuario 1 no debe marcar leídas las del usuario 2"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +240,9 @@ def test_forgot_reset_password(client, db_session, make_gym):
     )
     assert r.status_code == 204, r.text
 
-    ok = client.post("/api/v1/auth/login", json={"identifier": user.email, "password": "NuevaClave123"})
+    ok = client.post(
+        "/api/v1/auth/login", json={"identifier": user.email, "password": "NuevaClave123"}
+    )
     assert ok.status_code == 200, ok.text
 
 
@@ -266,7 +284,7 @@ def test_gym_invite_single_use(client, db_session):
 def test_maintenance_complete_recalculates(client, db_session, make_gym):
     gym, _ = make_gym()
 
-    from app.models import EquipmentAsset, MaintenanceTask
+    from app.models import EquipmentAsset
 
     asset = EquipmentAsset(gym_id=gym.id, custom_name="Cinta", position_x=1, position_y=1)
     db_session.add(asset)
@@ -276,7 +294,12 @@ def test_maintenance_complete_recalculates(client, db_session, make_gym):
     created = client.post(
         f"/api/v1/equipment/{asset.id}/maintenance",
         headers=_headers(token),
-        json={"name": "Lubricación", "task_type": "lubrication", "interval_days": 30, "frequency": "monthly"},
+        json={
+            "name": "Lubricación",
+            "task_type": "lubrication",
+            "interval_days": 30,
+            "frequency": "monthly",
+        },
     )
     assert created.status_code == 201, created.text
     task_id = created.json()["id"]
@@ -331,8 +354,14 @@ def test_support_ticket_visibility(client, db_session, make_gym):
     from app.models import SupportTicket
 
     t1 = SupportTicket(
-        reporter_user_id=u1.id, reporter_role="staff", reporter_name="U1",
-        reporter_email=u1.email, gym_id=gym.id, subject="S1", description="d", status="open",
+        reporter_user_id=u1.id,
+        reporter_role="staff",
+        reporter_name="U1",
+        reporter_email=u1.email,
+        gym_id=gym.id,
+        subject="S1",
+        description="d",
+        status="open",
     )
     db_session.add(t1)
     db_session.commit()

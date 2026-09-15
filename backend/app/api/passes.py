@@ -56,9 +56,7 @@ def _lock_pass(db: Session, raw_token: str) -> MemberPass:
     token = _normalize_pass_token(raw_token)
     if not token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Falta el token")
-    pase = db.scalar(
-        select(MemberPass).where(MemberPass.token == token).with_for_update()
-    )
+    pase = db.scalar(select(MemberPass).where(MemberPass.token == token).with_for_update())
     if pase is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pase no encontrado")
     return pase

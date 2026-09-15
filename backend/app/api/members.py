@@ -269,7 +269,9 @@ def _issue_share_token(member: Member) -> None:
     member.share_expires_at = None
 
 
-@router.post("/{member_id}/share", summary="Genera/rota el link de invitación del socio (sin vencimiento)")
+@router.post(
+    "/{member_id}/share", summary="Genera/rota el link de invitación del socio (sin vencimiento)"
+)
 def share_member(
     member_id: str,
     ctx: CurrentGym = Depends(require_component("socios")),

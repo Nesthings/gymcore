@@ -156,7 +156,5 @@ def read_upload_limited(upload_file, max_bytes: int = 5 * 1024 * 1024) -> bytes:
     limit = max(1, max_bytes)
     content = upload_file.file.read(limit + 1)
     if len(content) > limit:
-        raise ValueError(
-            f"El archivo supera el límite de {limit // (1024 * 1024)} MB"
-        )
+        raise ValueError(f"El archivo supera el límite de {limit // (1024 * 1024)} MB")
     return content

@@ -163,14 +163,16 @@ def test_engagement_counts_checkins(db_session, make_gym, make_member, make_plan
     db_session.execute(
         text(
             "INSERT INTO checkins (gym_id, member_id, checked_at, checked_out_at, duration_min) "
-            "VALUES (:gid, :mid, now() - interval '1 hour', now() - interval '30 minutes', 30)"
+            "VALUES (:gid, :mid, "
+            "date_trunc('day', now()) + interval '2 hours', "
+            "date_trunc('day', now()) + interval '2.5 hours', 30)"
         ),
         {"gid": gym.id, "mid": member.id},
     )
     db_session.execute(
         text(
             "INSERT INTO checkins (gym_id, member_id, checked_at) "
-            "VALUES (:gid, :mid, now() - interval '1 day')"
+            "VALUES (:gid, :mid, date_trunc('day', now()) - interval '1 day' + interval '10 hours')"
         ),
         {"gid": gym.id, "mid": member.id},
     )

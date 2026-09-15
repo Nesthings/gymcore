@@ -37,30 +37,76 @@ CATEGORIES = [
 
 TYPES = {
     "cardio": [
-        "Treadmill", "Upright Bike", "Recumbent Bike", "Spin Bike", "Elliptical",
-        "Stair Climber", "Stepper", "Rowing Machine", "Ski Erg", "Air Bike",
+        "Treadmill",
+        "Upright Bike",
+        "Recumbent Bike",
+        "Spin Bike",
+        "Elliptical",
+        "Stair Climber",
+        "Stepper",
+        "Rowing Machine",
+        "Ski Erg",
+        "Air Bike",
     ],
     "strength": [
-        "Chest Press", "Shoulder Press", "Leg Press", "Leg Extension", "Leg Curl",
-        "Hack Squat", "Smith Machine", "Lat Pulldown", "Seated Row", "Pec Deck",
-        "Functional Trainer", "Cable Crossover", "Hip Thrust", "Abductor",
-        "Adductor", "Calf Raise", "Biceps Curl", "Triceps Extension",
-        "Glute Machine", "Back Extension",
+        "Chest Press",
+        "Shoulder Press",
+        "Leg Press",
+        "Leg Extension",
+        "Leg Curl",
+        "Hack Squat",
+        "Smith Machine",
+        "Lat Pulldown",
+        "Seated Row",
+        "Pec Deck",
+        "Functional Trainer",
+        "Cable Crossover",
+        "Hip Thrust",
+        "Abductor",
+        "Adductor",
+        "Calf Raise",
+        "Biceps Curl",
+        "Triceps Extension",
+        "Glute Machine",
+        "Back Extension",
     ],
     "free_weight": [
-        "Power Rack", "Squat Rack", "Half Rack", "Bench", "Adjustable Bench",
-        "Preacher Bench", "Dumbbell Rack", "Barbell Rack", "Plate Tree",
+        "Power Rack",
+        "Squat Rack",
+        "Half Rack",
+        "Bench",
+        "Adjustable Bench",
+        "Preacher Bench",
+        "Dumbbell Rack",
+        "Barbell Rack",
+        "Plate Tree",
     ],
     "functional": [
-        "Sled", "Battle Rope Station", "Functional Rig", "Pull-up Station",
-        "Dip Station", "Plyometric Box",
+        "Sled",
+        "Battle Rope Station",
+        "Functional Rig",
+        "Pull-up Station",
+        "Dip Station",
+        "Plyometric Box",
     ],
 }
 
 BRANDS = [
-    "Life Fitness", "Hammer Strength", "Precor", "Technogym", "Matrix", "Cybex",
-    "TRUE", "Nautilus", "Panatta", "Hoist", "Body-Solid", "Rogue", "Eleiko",
-    "Atlantis", "Prime Fitness",
+    "Life Fitness",
+    "Hammer Strength",
+    "Precor",
+    "Technogym",
+    "Matrix",
+    "Cybex",
+    "TRUE",
+    "Nautilus",
+    "Panatta",
+    "Hoist",
+    "Body-Solid",
+    "Rogue",
+    "Eleiko",
+    "Atlantis",
+    "Prime Fitness",
 ]
 
 # Modelos reales conocidos; specs/mantenimiento SIN CONFIRMAR → NULL.
@@ -95,7 +141,9 @@ def seed_catalog(db: Session) -> None:
         for name in names:
             ts = _type_slug(name)
             t = db.scalar(
-                select(EquipmentType).where(EquipmentType.slug == ts, EquipmentType.gym_id.is_(None))
+                select(EquipmentType).where(
+                    EquipmentType.slug == ts, EquipmentType.gym_id.is_(None)
+                )
             )
             if t is None:
                 t = EquipmentType(category_id=cat.id, name=name, slug=ts, is_custom=False)
@@ -208,13 +256,26 @@ def seed_demo(db: Session) -> None:
         db.flush()
         return a
 
-    treadmill = asset("Treadmill", "Life Fitness", "Integrity+", 2.5, 2, 0, "operativo", "LF-TM-001")
-    treadmill2 = asset("Treadmill", "Life Fitness", "Integrity+", 6, 2, 90, "operativo", "LF-TM-002")
+    treadmill = asset(
+        "Treadmill", "Life Fitness", "Integrity+", 2.5, 2, 0, "operativo", "LF-TM-001"
+    )
+    asset(
+        "Treadmill", "Life Fitness", "Integrity+", 6, 2, 90, "operativo", "LF-TM-002"
+    )
     treadmill3 = asset("Treadmill", "Precor", "TRM 800", 9.5, 2, 0, "fuera_servicio", "PR-TM-003")
     legpress = asset("Leg Press", "Life Fitness", "Insignia", 3, 8, 0, "operativo", "LF-LP-004")
-    legpress2 = asset("Leg Press", "Hammer Strength", "Plate Loaded Leg Press", 7.5, 8, 180, "operativo", "HS-LP-005")
-    rack = asset("Power Rack", "Rogue", "Monster Lite Rack", 5, 13, 0, "operativo", "RG-PR-006")
-    bike = asset("Spin Bike", "Matrix", "Matrix", 14, 8, 0, "operativo", "MX-BI-007")
+    asset(
+        "Leg Press",
+        "Hammer Strength",
+        "Plate Loaded Leg Press",
+        7.5,
+        8,
+        180,
+        "operativo",
+        "HS-LP-005",
+    )
+    asset("Power Rack", "Rogue", "Monster Lite Rack", 5, 13, 0, "operativo", "RG-PR-006")
+    asset("Spin Bike", "Matrix", "Matrix", 14, 8, 0, "operativo", "MX-BI-007")
 
     # Mantenimiento: vencido en treadmill3 (fuera de servicio) y próximo en legpress
     db.add(

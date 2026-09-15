@@ -86,15 +86,21 @@ def _save_files(db: Session, ticket_id, validated: list[tuple[str, bytes]]) -> l
         attachment = SupportTicketAttachment(
             ticket_id=ticket_id,
             uploaded_by=None,
-            file_type="image" if filename.lower().endswith(tuple(ALLOWED_IMAGE_EXTENSIONS)) else "file",
+            file_type="image"
+            if filename.lower().endswith(tuple(ALLOWED_IMAGE_EXTENSIONS))
+            else "file",
             url=public_url(rel),
         )
         db.add(attachment)
-        saved.append({"id": str(attachment.id), "file_type": attachment.file_type, "url": attachment.url})
+        saved.append(
+            {"id": str(attachment.id), "file_type": attachment.file_type, "url": attachment.url}
+        )
     return saved
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, summary="Reporta un problema (ticket de soporte)")
+@router.post(
+    "", status_code=status.HTTP_201_CREATED, summary="Reporta un problema (ticket de soporte)"
+)
 def create_ticket(
     subject: str = Form(..., min_length=1, max_length=200),
     description: str = Form(..., min_length=1, max_length=5000),
@@ -124,7 +130,9 @@ def create_ticket(
         )
         reporter_role = "staff"
     if reporter is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado"
+        )
 
     validated = _read_files(files)
 
@@ -187,9 +195,7 @@ def list_all_tickets(
     _: CurrentUser = Depends(_super_admin),
 ) -> list[dict]:
     tickets = list(
-        db.scalars(
-            select(SupportTicket).order_by(SupportTicket.created_at.desc()).limit(200)
-        )
+        db.scalars(select(SupportTicket).order_by(SupportTicket.created_at.desc()).limit(200))
     )
     if not tickets:
         return []
@@ -217,7 +223,9 @@ def list_all_tickets(
         )
 
     return [
-        _ticket_dict(t, gym_name=gym_names.get(str(t.gym_id)), attachments=attachments.get(str(t.id), []))
+        _ticket_dict(
+            t, gym_name=gym_names.get(str(t.gym_id)), attachments=attachments.get(str(t.id), [])
+        )
         for t in tickets
     ]
 

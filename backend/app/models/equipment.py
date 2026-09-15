@@ -16,7 +16,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.session import Base
 from app.models.base import GymScopedMixin, UUIDPkMixin
 
-
 # --------------------------------------------------------------------------
 # Catálogo global
 # --------------------------------------------------------------------------
@@ -47,7 +46,9 @@ class EquipmentType(UUIDPkMixin, Base):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     slug: Mapped[str] = mapped_column(String(80), nullable=False)
     gym_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    is_custom: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    is_custom: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 
@@ -85,8 +86,12 @@ class EquipmentModel(UUIDPkMixin, Base):
     manual_url: Mapped[str | None] = mapped_column(String(255))
     maintenance_guide_url: Mapped[str | None] = mapped_column(String(255))
     gym_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    is_global: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    is_global: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
 
 
 class EquipmentModelMaintenanceRecommendation(UUIDPkMixin, Base):
@@ -237,9 +242,7 @@ class MaintenanceTask(UUIDPkMixin, Base):
 
     __tablename__ = "maintenance_tasks"
 
-    gym_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
-    )
+    gym_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     equipment_asset_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("equipment_assets.id"), nullable=False, index=True
     )

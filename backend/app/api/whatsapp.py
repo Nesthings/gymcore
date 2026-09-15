@@ -43,9 +43,10 @@ async def webhook_receive(request: Request) -> dict:
     raw = await request.body()
     if settings.whatsapp_app_secret:
         signature = request.headers.get("X-Hub-Signature-256", "")
-        expected = "sha256=" + hmac.new(
-            settings.whatsapp_app_secret.encode(), raw, hashlib.sha256
-        ).hexdigest()
+        expected = (
+            "sha256="
+            + hmac.new(settings.whatsapp_app_secret.encode(), raw, hashlib.sha256).hexdigest()
+        )
         if not hmac.compare_digest(signature, expected):
             logger.warning("WhatsApp webhook: firma inválida")
             return {"status": "ok"}  # no exponer el motivo; Meta espera 200

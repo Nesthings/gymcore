@@ -137,9 +137,7 @@ def gym_summary(
 # --------------------------------------------------------------------------
 
 
-@router.get(
-    "/gyms", dependencies=[Depends(require_roles("super-admin"))]
-)
+@router.get("/gyms", dependencies=[Depends(require_roles("super-admin"))])
 def platform_list_gyms(
     _user: CurrentUser = Depends(require_roles("super-admin")),
     db: Session = Depends(get_db),

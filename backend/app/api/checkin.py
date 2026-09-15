@@ -89,13 +89,17 @@ def checkin(
     #   - después del umbral: se cierra la sesión (check-out automático) para
     #     que el mismo lector registre entradas y salidas.
     now = datetime.now(UTC)
-    open_session = db.execute(
-        text(
-            "SELECT id, checked_at FROM checkins WHERE member_id = :mid AND gym_id = :gid "
-            "AND checked_out_at IS NULL AND checked_at::date = current_date LIMIT 1"
-        ),
-        {"mid": member.id, "gid": str(ctx.gym["id"])},
-    ).mappings().first()
+    open_session = (
+        db.execute(
+            text(
+                "SELECT id, checked_at FROM checkins WHERE member_id = :mid AND gym_id = :gid "
+                "AND checked_out_at IS NULL AND checked_at::date = current_date LIMIT 1"
+            ),
+            {"mid": member.id, "gid": str(ctx.gym["id"])},
+        )
+        .mappings()
+        .first()
+    )
     if open_session:
         grace_min = settings.checkout_grace_minutes
         session_age_min = (now - open_session["checked_at"]).total_seconds() / 60
@@ -111,9 +115,7 @@ def checkin(
         # Check-out automático: cierra la sesión y mide la duración.
         duration_min = max(1, int(session_age_min))
         db.execute(
-            text(
-                "UPDATE checkins SET checked_out_at = :out, duration_min = :dur WHERE id = :cid"
-            ),
+            text("UPDATE checkins SET checked_out_at = :out, duration_min = :dur WHERE id = :cid"),
             {"out": now, "dur": duration_min, "cid": open_session["id"]},
         )
         db.commit()

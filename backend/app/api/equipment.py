@@ -6,13 +6,13 @@ escrituras). El catálogo global (`gym_id IS NULL`) es de solo lectura.
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentGym, get_current_gym, require_component, require_gym_roles
+from app.api.deps import CurrentGym, require_component, require_gym_roles
 from app.core.events import record_audit
 from app.db.session import get_db
 from app.models import (
@@ -84,28 +84,34 @@ def _effective_task_status(next_due_at, notice_days: int) -> str:
     return "scheduled"
 
 
-def _tasks_by_asset(db: Session, gym_id: str, asset_ids: list[uuid.UUID], notice_days: int) -> dict[str, list[dict]]:
+def _tasks_by_asset(
+    db: Session, gym_id: str, asset_ids: list[uuid.UUID], notice_days: int
+) -> dict[str, list[dict]]:
     if not asset_ids:
         return {}
-    rows = db.execute(
-        select(
-            MaintenanceTask.equipment_asset_id,
-            MaintenanceTask.id,
-            MaintenanceTask.name,
-            MaintenanceTask.task_type,
-            MaintenanceTask.interval_days,
-            MaintenanceTask.frequency,
-            MaintenanceTask.last_completed_at,
-            MaintenanceTask.next_due_at,
-            MaintenanceTask.status,
-            MaintenanceTask.manufacturer_recommended,
-            MaintenanceTask.source,
-            MaintenanceTask.source_document,
-        ).where(
-            MaintenanceTask.equipment_asset_id.in_(asset_ids),
-            MaintenanceTask.status != "disabled",
+    rows = (
+        db.execute(
+            select(
+                MaintenanceTask.equipment_asset_id,
+                MaintenanceTask.id,
+                MaintenanceTask.name,
+                MaintenanceTask.task_type,
+                MaintenanceTask.interval_days,
+                MaintenanceTask.frequency,
+                MaintenanceTask.last_completed_at,
+                MaintenanceTask.next_due_at,
+                MaintenanceTask.status,
+                MaintenanceTask.manufacturer_recommended,
+                MaintenanceTask.source,
+                MaintenanceTask.source_document,
+            ).where(
+                MaintenanceTask.equipment_asset_id.in_(asset_ids),
+                MaintenanceTask.status != "disabled",
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     out: dict[str, list[dict]] = {}
     for r in rows:
         st = r["status"]
@@ -217,9 +223,15 @@ def _load_model_dimensions(db: Session, model_ids: list[str]) -> None:
     for mid in model_ids:
         if mid in _model_dimensions_cache:
             continue
-        row = db.execute(
-            select(EquipmentModel.width_m, EquipmentModel.depth_m).where(EquipmentModel.id == mid)
-        ).mappings().first()
+        row = (
+            db.execute(
+                select(EquipmentModel.width_m, EquipmentModel.depth_m).where(
+                    EquipmentModel.id == mid
+                )
+            )
+            .mappings()
+            .first()
+        )
         _model_dimensions_cache[mid] = (row["width_m"], row["depth_m"]) if row else (None, None)
 
 
@@ -229,10 +241,14 @@ def _load_model_dimensions(db: Session, model_ids: list[str]) -> None:
 
 
 @catalog_router.get("")
-def catalog_tree(ctx: CurrentGym = Depends(require_component("layout")), db: Session = Depends(get_db)) -> dict:
+def catalog_tree(
+    ctx: CurrentGym = Depends(require_component("layout")), db: Session = Depends(get_db)
+) -> dict:
     categories = db.scalars(select(EquipmentCategory).order_by(EquipmentCategory.name)).all()
     types = db.scalars(
-        select(EquipmentType).where((EquipmentType.gym_id.is_(None)) | (EquipmentType.gym_id == ctx.gym["id"]))
+        select(EquipmentType).where(
+            (EquipmentType.gym_id.is_(None)) | (EquipmentType.gym_id == ctx.gym["id"])
+        )
     ).all()
     brands = db.scalars(select(EquipmentBrand).order_by(EquipmentBrand.name)).all()
     models = db.scalars(
@@ -243,7 +259,9 @@ def catalog_tree(ctx: CurrentGym = Depends(require_component("layout")), db: Ses
     ).all()
     recs = db.scalars(
         select(EquipmentModelMaintenanceRecommendation).where(
-            EquipmentModelMaintenanceRecommendation.equipment_model_id.in_([m.id for m in models] or [uuid.UUID(int=0)])
+            EquipmentModelMaintenanceRecommendation.equipment_model_id.in_(
+                [m.id for m in models] or [uuid.UUID(int=0)]
+            )
         )
     ).all()
     rec_by_model: dict[str, list[dict]] = {}
@@ -319,8 +337,13 @@ def create_custom_type(
     )
     db.add(t)
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_type_created", entity_type="equipment_type", entity_id=t.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_type_created",
+        entity_type="equipment_type",
+        entity_id=t.id,
         metadata={"name": t.name},
     )
     db.commit()
@@ -362,8 +385,13 @@ def create_custom_model(
     )
     db.add(model)
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_model_created", entity_type="equipment_model", entity_id=model.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_model_created",
+        entity_type="equipment_model",
+        entity_id=model.id,
         metadata={"name": model.name, "brand": brand.name},
     )
     db.commit()
@@ -386,7 +414,9 @@ def create_custom_model(
 
 
 @layout_router.get("", response_model=GymLayoutRead)
-def get_layout(ctx: CurrentGym = Depends(require_component("layout")), db: Session = Depends(get_db)) -> GymLayout:
+def get_layout(
+    ctx: CurrentGym = Depends(require_component("layout")), db: Session = Depends(get_db)
+) -> GymLayout:
     return _get_layout(db, str(ctx.gym["id"]))
 
 
@@ -474,7 +504,9 @@ def create_equipment(
             )
         )
         if model is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Modelo no encontrado")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Modelo no encontrado"
+            )
     type_ = None
     category = None
     brand_name = body.brand_name
@@ -535,8 +567,13 @@ def create_equipment(
     db.add(asset)
     db.flush()
     record_audit(
-        db, gym_id=gid, actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_created", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=gid,
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_created",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
         metadata={"name": _display_name(asset)},
     )
     db.commit()
@@ -554,27 +591,37 @@ def get_equipment(
     asset = _asset_or_404(db, gid, asset_id)
     notice = _get_layout(db, gid).notice_days
     tasks = _tasks_by_asset(db, gid, [asset.id], notice).get(str(asset.id), [])
-    records = db.execute(
-        select(
-            MaintenanceRecord.task_name,
-            MaintenanceRecord.task_type,
-            MaintenanceRecord.completed_at,
-            MaintenanceRecord.completed_by,
-            MaintenanceRecord.notes,
-            MaintenanceRecord.cost,
-            MaintenanceRecord.replaced_parts,
+    records = (
+        db.execute(
+            select(
+                MaintenanceRecord.task_name,
+                MaintenanceRecord.task_type,
+                MaintenanceRecord.completed_at,
+                MaintenanceRecord.completed_by,
+                MaintenanceRecord.notes,
+                MaintenanceRecord.cost,
+                MaintenanceRecord.replaced_parts,
+            )
+            .where(MaintenanceRecord.equipment_asset_id == asset.id)
+            .order_by(MaintenanceRecord.completed_at.desc())
+            .limit(50)
         )
-        .where(MaintenanceRecord.equipment_asset_id == asset.id)
-        .order_by(MaintenanceRecord.completed_at.desc())
-        .limit(50)
-    ).mappings().all()
-    incidents = db.execute(
-        select(EquipmentIncident)
-        .where(EquipmentIncident.equipment_asset_id == asset.id)
-        .order_by(EquipmentIncident.created_at.desc())
-        .limit(50)
-    ).scalars().all()
-    base = _asset_dict(asset, tasks, len([i for i in incidents if i.status in ("open", "in_progress")]))
+        .mappings()
+        .all()
+    )
+    incidents = (
+        db.execute(
+            select(EquipmentIncident)
+            .where(EquipmentIncident.equipment_asset_id == asset.id)
+            .order_by(EquipmentIncident.created_at.desc())
+            .limit(50)
+        )
+        .scalars()
+        .all()
+    )
+    base = _asset_dict(
+        asset, tasks, len([i for i in incidents if i.status in ("open", "in_progress")])
+    )
     base["maintenance"] = tasks
     base["maintenance_history"] = [dict(r) for r in records]
     base["incidents"] = [
@@ -607,8 +654,13 @@ def update_equipment(
     for field, value in data.items():
         setattr(asset, field, value)
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_updated", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_updated",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
         metadata={"fields": list(data.keys())},
     )
     db.commit()
@@ -632,8 +684,13 @@ def update_position(
     asset.position_y = round(y, 2)
     asset.rotation = body.rotation % 360
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_moved", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_moved",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
         metadata={"x": asset.position_x, "y": asset.position_y, "rotation": asset.rotation},
     )
     db.commit()
@@ -641,7 +698,9 @@ def update_position(
     return _asset_dict(asset, [], 0)
 
 
-@router.post("/{asset_id}/duplicate", response_model=EquipmentAssetRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{asset_id}/duplicate", response_model=EquipmentAssetRead, status_code=status.HTTP_201_CREATED
+)
 def duplicate_equipment(
     asset_id: str,
     ctx: CurrentGym = Depends(require_gym_roles(*MUTATORS)),
@@ -677,8 +736,13 @@ def duplicate_equipment(
     db.add(copy)
     db.flush()
     record_audit(
-        db, gym_id=src.gym_id, actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_duplicated", entity_type="equipment_asset", entity_id=copy.id,
+        db,
+        gym_id=src.gym_id,
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_duplicated",
+        entity_type="equipment_asset",
+        entity_id=copy.id,
     )
     db.commit()
     db.refresh(copy)
@@ -694,8 +758,13 @@ def retire_equipment(
     asset = _asset_or_404(db, str(ctx.gym["id"]), asset_id)
     asset.status = "retirado"
     record_audit(
-        db, gym_id=ctx.gym["id"], actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_retired", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=ctx.gym["id"],
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_retired",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
     )
     db.commit()
     db.refresh(asset)
@@ -711,19 +780,30 @@ def delete_equipment(
     gid = str(ctx.gym["id"])
     asset = _asset_or_404(db, gid, asset_id)
     has_history = db.scalar(
-        select(MaintenanceRecord.id).where(MaintenanceRecord.equipment_asset_id == asset.id).limit(1)
+        select(MaintenanceRecord.id)
+        .where(MaintenanceRecord.equipment_asset_id == asset.id)
+        .limit(1)
     ) or db.scalar(
-        select(EquipmentIncident.id).where(EquipmentIncident.equipment_asset_id == asset.id).limit(1)
+        select(EquipmentIncident.id)
+        .where(EquipmentIncident.equipment_asset_id == asset.id)
+        .limit(1)
     )
     if has_history:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Este equipo tiene historial. Usa 'Retirar' para conservarlo.",
         )
-    db.execute(text("DELETE FROM maintenance_tasks WHERE equipment_asset_id = :id"), {"id": asset.id})
+    db.execute(
+        text("DELETE FROM maintenance_tasks WHERE equipment_asset_id = :id"), {"id": asset.id}
+    )
     db.delete(asset)
     record_audit(
-        db, gym_id=gid, actor_type="user", actor_id=ctx.user.sub,
-        action="equipment_deleted", entity_type="equipment_asset", entity_id=asset.id,
+        db,
+        gym_id=gid,
+        actor_type="user",
+        actor_id=ctx.user.sub,
+        action="equipment_deleted",
+        entity_type="equipment_asset",
+        entity_id=asset.id,
     )
     db.commit()

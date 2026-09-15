@@ -93,7 +93,7 @@ app.add_middleware(
     # Sin "*" + credentials (combinación inválida). Si se usa "*", no se
     # envían cookies (credentials) y la API usa Authorization header.
     allow_origins=settings.cors_origins,
-    allow_credentials=not ("*" in settings.cors_origins),
+    allow_credentials="*" not in settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
