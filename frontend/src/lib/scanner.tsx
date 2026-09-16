@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import QrScanner from 'qr-scanner'
 import workerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 
@@ -79,6 +80,7 @@ const STAFF_ROLES = ['admin', 'recepcion', 'coach']
 export function ScannerProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { toast } = useToast()
+  const location = useLocation()
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -108,6 +110,15 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
 
   // Excepción: la ficha/credencial del socio NO apaga la cámara. El lector es
   // un proceso de fondo que permanece activo en TODAS las páginas del staff.
+
+  // Rutas públicas (login, portal /m, invitado /g, etc.): en ellas la cámara
+  // NUNCA debe encenderse ni pedir permisos, aunque haya una sesión de staff
+  // abierta en el mismo navegador (al compartir un link con un cliente).
+  const isPublicRoute =
+    location.pathname === '/' ||
+    ['/login', '/create-gym', '/forgot-password', '/reset-password', '/m', '/g', '/design-system'].some(
+      (p) => location.pathname === p || location.pathname.startsWith(`${p}/`),
+    )
 
   const storageKey = `${PREF_KEY}:${user?.sub ?? 'guest'}`
 
@@ -353,11 +364,24 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, stopScanner])
 
-  // Auto-inicio (proceso de fondo) para el staff en TODAS las páginas.
-  // NO depende de la ruta: una vez arrancado, navegar no lo detiene; solo el
-  // toggle (o cerrar sesión) lo apaga.
+  // Rutas públicas: se apaga la cámara a la fuerza y se reinicia el estado
+  // manual para que al volver a una página del staff se reanude (el toggle
+  // persistió '1'). En estas rutas tampoco se pide permiso de cámara.
+  useEffect(() => {
+    if (isPublicRoute) {
+      manualRef.current = false
+      stopScanner()
+      setEnabled(false)
+    }
+  }, [isPublicRoute, stopScanner])
+
+  // Auto-inicio (proceso de fondo) para el staff en las páginas del panel.
+  // NO depende de la ruta entre páginas del staff: una vez arrancado, navegar
+  // no lo detiene; solo el toggle, cerrar sesión o estar en una ruta pública
+  // (portal/invitado/login) lo apagan.
   useEffect(() => {
     if (!user || !STAFF_ROLES.includes(user.role)) return
+    if (isPublicRoute) return
     if (manualRef.current || enabled) return
     let stored: string | null = null
     try {
@@ -405,7 +429,7 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [user, storageKey, enabled, start, toast])
+  }, [user, storageKey, enabled, isPublicRoute, start, toast])
 
   // Al desmontar (cierre de sesión / cierre de la app) se libera la cámara.
   useEffect(() => {
