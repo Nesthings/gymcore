@@ -17,6 +17,15 @@ export function AuthLayout({
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center gap-8 overflow-hidden bg-background px-4 py-12">
+      {/* Collage de fondo, atenuado con un overlay del color de fondo
+          (mismo patrón que VetCore: bg-cover + capa bg-background/85). */}
+      <div
+        className="pointer-events-none absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/collage-gymcore.png')" }}
+        aria-hidden="true"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-background/85" aria-hidden="true" />
+
       {/* Aura de fondo sutil (energía de gimnasio, sin ruido) */}
       <div
         className={cn(

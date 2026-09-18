@@ -2,4 +2,4 @@
 
 ## Pendientes
 
-- [ ] Añadir imagen collage a la pantalla de login
+- [x] Añadir imagen collage a la pantalla de login
