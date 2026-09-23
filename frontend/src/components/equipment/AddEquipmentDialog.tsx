@@ -110,9 +110,13 @@ export function AddEquipmentDialog({
   const recs: Recommendation[] = model?.recommendations ?? []
 
   const dims = (() => {
-    if (model?.width_m && model?.depth_m) return { w: model.width_m, d: model.depth_m }
+    // Lo que el usuario escriba en Ancho/Fondo tiene prioridad; si no, las
+    // dimensiones del modelo y, por último, el valor por defecto del tipo.
     const f = defaultDimensions(type?.name)
-    return { w: Number(width) || f.w, d: Number(depth) || f.d }
+    return {
+      w: Number(width) || model?.width_m || f.w,
+      d: Number(depth) || model?.depth_m || f.d,
+    }
   })()
 
   const resetLower = () => {
@@ -267,8 +271,9 @@ export function AddEquipmentDialog({
             </div>
             <div className="flex items-end gap-2 border-t border-border pt-3">
               <div className="flex-1 space-y-1">
-                <Label>Crear tipo personalizado</Label>
+                <Label htmlFor="eq-custom-type">Crear tipo personalizado</Label>
                 <Input
+                  id="eq-custom-type"
                   value={customType}
                   onChange={(e) => setCustomType(e.target.value)}
                   placeholder="Ej. Escaladora"
@@ -305,7 +310,7 @@ export function AddEquipmentDialog({
         {/* Paso 2: marca */}
         {step === 2 && (
           <div className="space-y-3">
-            <SearchInput value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar marca…" />
+            <SearchInput value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar marca…" aria-label="Buscar marca" />
             <div className="grid max-h-56 gap-1.5 overflow-y-auto sm:grid-cols-2">
               {brands.map((b) => (
                 <button
@@ -323,8 +328,8 @@ export function AddEquipmentDialog({
             </div>
             <div className="flex items-end gap-2 border-t border-border pt-3">
               <div className="flex-1 space-y-1">
-                <Label>Otra marca</Label>
-                <Input value={customBrand} onChange={(e) => setCustomBrand(e.target.value)} placeholder="Ej. Impulse" />
+                <Label htmlFor="eq-custom-brand">Otra marca</Label>
+                <Input id="eq-custom-brand" value={customBrand} onChange={(e) => setCustomBrand(e.target.value)} placeholder="Ej. Impulse" />
               </div>
               <Button
                 size="sm"
@@ -380,8 +385,8 @@ export function AddEquipmentDialog({
             )}
             <div className="flex items-end gap-2 border-t border-border pt-3">
               <div className="flex-1 space-y-1">
-                <Label>Modelo personalizado</Label>
-                <Input value={customModel} onChange={(e) => setCustomModel(e.target.value)} placeholder="Ej. Modelo 900" />
+                <Label htmlFor="eq-custom-model">Modelo personalizado</Label>
+                <Input id="eq-custom-model" value={customModel} onChange={(e) => setCustomModel(e.target.value)} placeholder="Ej. Modelo 900" />
               </div>
               <Button
                 size="sm"
@@ -424,24 +429,24 @@ export function AddEquipmentDialog({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label>Número de activo</Label>
-                <Input value={assetNumber} onChange={(e) => setAssetNumber(e.target.value)} placeholder="LF-TM-001" />
+                <Label htmlFor="eq-asset-number">Número de activo</Label>
+                <Input id="eq-asset-number" value={assetNumber} onChange={(e) => setAssetNumber(e.target.value)} placeholder="LF-TM-001" />
               </div>
               <div className="space-y-1">
-                <Label>No. de serie</Label>
-                <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Opcional" />
+                <Label htmlFor="eq-serial">No. de serie</Label>
+                <Input id="eq-serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Opcional" />
               </div>
               <div className="space-y-1 sm:col-span-2">
-                <Label>Nombre personalizado</Label>
-                <Input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Ej. Cinta 1" />
+                <Label htmlFor="eq-custom-name">Nombre personalizado</Label>
+                <Input id="eq-custom-name" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Ej. Cinta 1" />
               </div>
               <div className="space-y-1">
-                <Label>Ancho (m)</Label>
-                <Input type="number" step="0.1" min="0.1" value={width} onChange={(e) => setWidth(e.target.value)} />
+                <Label htmlFor="eq-width">Ancho (m)</Label>
+                <Input id="eq-width" type="number" step="0.1" min="0.1" value={width} onChange={(e) => setWidth(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label>Fondo (m)</Label>
-                <Input type="number" step="0.1" min="0.1" value={depth} onChange={(e) => setDepth(e.target.value)} />
+                <Label htmlFor="eq-depth">Fondo (m)</Label>
+                <Input id="eq-depth" type="number" step="0.1" min="0.1" value={depth} onChange={(e) => setDepth(e.target.value)} />
               </div>
             </div>
 
@@ -469,12 +474,12 @@ export function AddEquipmentDialog({
             <div className="grid gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[1fr_auto]">
               <div className="flex items-end gap-2">
                 <div className="flex-1 space-y-1">
-                  <Label>Tarea manual (opcional)</Label>
-                  <Input value={manualTask} onChange={(e) => setManualTask(e.target.value)} placeholder="Ej. Limpieza semanal" />
+                  <Label htmlFor="eq-manual-task">Tarea manual (opcional)</Label>
+                  <Input id="eq-manual-task" value={manualTask} onChange={(e) => setManualTask(e.target.value)} placeholder="Ej. Limpieza semanal" />
                 </div>
                 <div className="w-28 space-y-1">
-                  <Label>Intervalo (días)</Label>
-                  <Input type="number" min="1" value={manualTaskDays} onChange={(e) => setManualTaskDays(e.target.value)} />
+                  <Label htmlFor="eq-manual-days">Intervalo (días)</Label>
+                  <Input id="eq-manual-days" type="number" min="1" value={manualTaskDays} onChange={(e) => setManualTaskDays(e.target.value)} />
                 </div>
               </div>
             </div>

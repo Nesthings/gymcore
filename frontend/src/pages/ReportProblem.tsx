@@ -15,8 +15,12 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LoadingState } from '@/components/ui/loading-state'
+import { PageHeader } from '@/components/ui/page-header'
 import { Textarea } from '@/components/ui/textarea'
 import { apiFetch } from '@/lib/api'
 import { useToast } from '@/components/ui/toast'
@@ -56,6 +60,7 @@ export function ReportProblem() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   const loadTickets = useCallback(async () => {
+    setTicketsError(null)
     try {
       setTickets(await apiFetch<Ticket[]>('/support-tickets'))
     } catch (err) {
@@ -71,9 +76,19 @@ export function ReportProblem() {
 
   const onFiles = (list: FileList | null) => {
     if (!list) return
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf']
     const next = [...files]
     for (const f of Array.from(list)) {
       if (next.length >= MAX_FILES) break
+      const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
+      if (!allowed.includes(ext)) {
+        toast({ title: 'Formato no permitido', description: `${f.name}: usa JPG, PNG, WebP o PDF.`, variant: 'error' })
+        continue
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        toast({ title: 'Archivo demasiado grande', description: `${f.name} supera 10 MB.`, variant: 'error' })
+        continue
+      }
       next.push(f)
     }
     setFiles(next)
@@ -120,17 +135,19 @@ export function ReportProblem() {
 
   return (
     <AppLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Reportar un problema</h1>
-        <p className="text-sm text-muted-foreground">
-          Cuéntanos qué está fallando y el equipo de soporte lo revisará.
-        </p>
-      </div>
+      <PageHeader
+        title="Reportar un problema"
+        subtitle="Cuéntanos qué está fallando y el equipo de soporte lo revisará."
+        icon={CircleHelp}
+      />
 
       <div className="max-w-xl space-y-6">
         {done ? (
           <Card className="shadow-card">
-            <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <CardContent
+              role="status"
+              className="flex flex-col items-center gap-3 py-10 text-center"
+            >
               <CheckCircle2 className="size-12 text-success" aria-hidden="true" />
               <p className="text-lg font-semibold">¡Reporte enviado!</p>
               <p className="max-w-sm text-sm text-muted-foreground">
@@ -154,8 +171,9 @@ export function ReportProblem() {
             <CardContent>
               <form onSubmit={submit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Asunto</Label>
+                  <Label htmlFor="report-subject">Asunto</Label>
                   <Input
+                    id="report-subject"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder="ej. No puedo registrar un check-in"
@@ -165,8 +183,9 @@ export function ReportProblem() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Cuerpo del mensaje</Label>
+                  <Label htmlFor="report-description">Cuerpo del mensaje</Label>
                   <Textarea
+                    id="report-description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Describe el problema con detalle…"
@@ -177,7 +196,7 @@ export function ReportProblem() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Archivos adjuntos</Label>
+                  <Label htmlFor="report-files">Archivos adjuntos</Label>
                   <input
                     id="report-files"
                     type="file"
@@ -219,7 +238,11 @@ export function ReportProblem() {
                   </p>
                 </div>
 
-                {error && <p className="text-sm text-destructive">{error}</p>}
+                {error && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {error}
+                  </p>
+                )}
 
                 <Button type="submit" disabled={submitting} className="w-full">
                   {submitting ? <Loader2 className="animate-spin" /> : <Send />}
@@ -238,13 +261,17 @@ export function ReportProblem() {
             <CardDescription>Tus problemas reportados y su estado de atención.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {ticketsError && <p className="text-sm text-destructive">{ticketsError}</p>}
+            {ticketsError && (
+              <ErrorState description={ticketsError} onRetry={loadTickets} />
+            )}
             {ticketsLoading ? (
-              <p className="text-sm text-muted-foreground">Cargando…</p>
+              <LoadingState label="Cargando tus reportes…" />
             ) : tickets.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Aún no has reportado problemas. Usa el formulario de arriba para enviar el primero.
-              </p>
+              <EmptyState
+                title="Sin reportes"
+                description="Usa el formulario de arriba para enviar el primero."
+                icon={CircleHelp}
+              />
             ) : (
               tickets.map((t) => {
                 const open = openId === t.id
@@ -253,6 +280,8 @@ export function ReportProblem() {
                   <div key={t.id} className="rounded-lg border border-border/60 bg-muted/30">
                     <button
                       type="button"
+                      aria-expanded={open}
+                      aria-controls={`ticket-panel-${t.id}`}
                       onClick={() => setOpenId(open ? null : t.id)}
                       className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
                     >
@@ -264,19 +293,22 @@ export function ReportProblem() {
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <Badge variant={resolved ? 'success' : 'warning'}>
+                        <Badge variant={resolved ? 'soft-success' : 'soft-warning'}>
                           {resolved ? 'Resuelto' : 'En revisión'}
                         </Badge>
                         {open ? (
-                          <ChevronDown className="size-4 text-muted-foreground" />
+                          <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
                         ) : (
-                          <ChevronRight className="size-4 text-muted-foreground" />
+                          <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
                         )}
                       </div>
                     </button>
 
                     {open && (
-                      <div className="space-y-3 border-t border-border/60 px-3 py-3">
+                      <div
+                        id={`ticket-panel-${t.id}`}
+                        className="space-y-3 border-t border-border/60 px-3 py-3"
+                      >
                         <p className="whitespace-pre-wrap text-sm text-foreground/90">
                           {t.description}
                         </p>

@@ -28,3 +28,18 @@ class AuditLogRead(BaseModel):
     entity_id: uuid.UUID
     metadata_json: dict | None
     created_at: datetime
+
+
+class AuditLogListItem(BaseModel):
+    """Vista de listado de auditoría: omite `metadata_json` (puede contener PII)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    gym_id: uuid.UUID | None
+    actor_type: str
+    actor_id: uuid.UUID
+    action: str
+    entity_type: str
+    entity_id: uuid.UUID
+    created_at: datetime

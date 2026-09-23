@@ -97,6 +97,7 @@ export function Login() {
           <div className="space-y-2">
             <Label htmlFor="login-2fa-code">Código de verificación</Label>
             <OtpInput
+              id="login-2fa-code"
               value={code}
               onChange={(v) => setCode(v)}
               autoFocus
@@ -108,7 +109,7 @@ export function Login() {
           </div>
 
           {codeError && (
-            <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
               <span>{codeError}</span>
             </div>
@@ -189,7 +190,7 @@ export function Login() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>

@@ -89,7 +89,7 @@ export function ProtectedRoute({
     if (!hasComponent(component)) {
       // Si no tiene acceso a esta pantalla, lo llevamos a la primera ruta a
       // la que sí tiene acceso, en vez de mostrar "Acceso restringido".
-      return <Navigate to={firstAllowedRoute(hasComponent)} replace />
+      return <Navigate to={firstAllowedRoute(hasComponent, user?.role)} replace />
     }
   }
 

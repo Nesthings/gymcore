@@ -4,9 +4,7 @@ import type { Lead } from '@/components/crm/LeadFormDialog'
 import { STAGE_LABELS } from '@/components/crm/LeadFormDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-
-const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+import { cn, formatCurrency } from '@/lib/utils'
 
 /**
  * LeadCard: tarjeta compacta de lead para el pipeline. Incluye controles para
@@ -33,7 +31,7 @@ export function LeadCard({
         <p className="min-w-0 truncate text-sm font-semibold text-foreground">{lead.full_name}</p>
         {lead.value != null && lead.value > 0 && (
           <span className="shrink-0 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary">
-            {MXN.format(lead.value)}
+            {formatCurrency(lead.value, 2)}
           </span>
         )}
       </div>

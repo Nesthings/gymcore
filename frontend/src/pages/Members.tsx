@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { PageHeader } from '@/components/ui/page-header'
 import { SearchInput } from '@/components/ui/search-input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -43,6 +45,7 @@ export interface MemberSummary {
 }
 
 type StatusFilter = 'all' | 'active' | 'inactive'
+type SortOption = 'recent' | 'name_asc' | 'name_desc'
 
 const STATUS_META: Record<string, { label: string; variant: 'soft-success' | 'soft-secondary' }> = {
   active: { label: 'Activo', variant: 'soft-success' },
@@ -55,10 +58,17 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'inactive', label: 'Inactivos' },
 ]
 
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'recent', label: 'Más recientes' },
+  { value: 'name_asc', label: 'Nombre (A–Z)' },
+  { value: 'name_desc', label: 'Nombre (Z–A)' },
+]
+
 export function Members() {
   const [members, setMembers] = useState<MemberSummary[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [sort, setSort] = useState<SortOption>('recent')
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -76,6 +86,7 @@ export function Members() {
             const params = new URLSearchParams()
             if (search.trim()) params.set('search', search.trim())
             if (statusFilter !== 'all') params.set('status', statusFilter)
+            params.set('sort', sort)
             params.set('limit', '200')
             const res = await apiFetch<MemberSummary[]>(`/members?${params}`)
             if (!cancelled) {
@@ -95,7 +106,7 @@ export function Members() {
       cancelled = true
       clearTimeout(t)
     }
-  }, [search, statusFilter, refreshKey])
+  }, [search, statusFilter, sort, refreshKey])
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
@@ -118,21 +129,22 @@ export function Members() {
   return (
     <AppLayout>
     <div className="mx-auto w-full max-w-6xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Socios</h1>
-          <p className="text-sm text-muted-foreground">Padrón y membresías de los miembros del gimnasio</p>
-        </div>
-        <Button
-          size="sm"
-          onClick={() => {
-            setEditing(null)
-            setFormOpen(true)
-          }}
-        >
-          <Plus /> Nuevo socio
-        </Button>
-      </div>
+      <PageHeader
+        title="Socios"
+        subtitle="Padrón y membresías de los miembros del gimnasio"
+        icon={Users}
+        actions={
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditing(null)
+              setFormOpen(true)
+            }}
+          >
+            <Plus /> Nuevo socio
+          </Button>
+        }
+      />
 
       <div className="mb-4 flex flex-col gap-3">
         <SearchInput
@@ -164,6 +176,24 @@ export function Members() {
               </button>
             )
           })}
+
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Ordenar
+            </span>
+            <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+              <SelectTrigger className="w-44" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

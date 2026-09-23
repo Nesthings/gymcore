@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DoorOpen, Plus, Save, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,19 @@ export function LayoutSettingsDialog({
   const [newRoom, setNewRoom] = useState('')
   const [busy, setBusy] = useState(false)
   const { toast } = useToast()
+
+  // Reinicia el formulario con los datos vigentes cada vez que se abre,
+  // para no mostrar valores obsoletos de una apertura anterior.
+  useEffect(() => {
+    if (!open) return
+    setWidth(String(layout.width_m))
+    setLength(String(layout.length_m))
+    setNotice(String(layout.notice_days))
+    setZones(layout.zones)
+    setRooms(layout.rooms)
+    setNewZone('')
+    setNewRoom('')
+  }, [open, layout])
 
   const save = async () => {
     setBusy(true)
@@ -89,29 +102,29 @@ export function LayoutSettingsDialog({
         <div className="space-y-4">
           {/* Sala principal */}
           <div className="space-y-2 rounded-xl border border-border bg-card p-3">
-            <Label className="flex items-center gap-1.5">
-              <DoorOpen className="size-4 text-primary" /> Sala principal
-            </Label>
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <DoorOpen className="size-4 text-primary" aria-hidden="true" /> Sala principal
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Ancho (m)</Label>
-                <Input type="number" step="0.5" min="1" value={width} onChange={(e) => setWidth(e.target.value)} />
+                <Label htmlFor="ls-main-width">Ancho (m)</Label>
+                <Input id="ls-main-width" type="number" step="0.5" min="1" value={width} onChange={(e) => setWidth(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label>Largo (m)</Label>
-                <Input type="number" step="0.5" min="1" value={length} onChange={(e) => setLength(e.target.value)} />
+                <Label htmlFor="ls-main-length">Largo (m)</Label>
+                <Input id="ls-main-length" type="number" step="0.5" min="1" value={length} onChange={(e) => setLength(e.target.value)} />
               </div>
             </div>
           </div>
 
           {/* Salas adicionales */}
           <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">
-              <DoorOpen className="size-4 text-primary" /> Salas adicionales
-            </Label>
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <DoorOpen className="size-4 text-primary" aria-hidden="true" /> Salas adicionales
+            </p>
             <div className="flex gap-2">
-              <Input value={newRoom} onChange={(e) => setNewRoom(e.target.value)} placeholder="Ej. Sala de cardio" />
-              <Button variant="outline" size="sm" onClick={addRoom}><Plus /></Button>
+              <Input value={newRoom} onChange={(e) => setNewRoom(e.target.value)} placeholder="Ej. Sala de cardio" aria-label="Nombre de la nueva sala" />
+              <Button variant="outline" size="sm" aria-label="Agregar sala" onClick={addRoom}><Plus /></Button>
             </div>
             {rooms.map((r) => (
               <div key={r.id} className="space-y-2 rounded-xl border border-border bg-card p-3">
@@ -120,6 +133,7 @@ export function LayoutSettingsDialog({
                     value={r.name}
                     onChange={(e) => patchRoom(r.id, { name: e.target.value })}
                     className="flex-1 font-medium"
+                    aria-label="Nombre de la sala"
                   />
                   <button
                     type="button"
@@ -132,12 +146,12 @@ export function LayoutSettingsDialog({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label>Ancho (m)</Label>
-                    <Input type="number" step="0.5" min="1" value={String(r.width_m)} onChange={(e) => patchRoom(r.id, { width_m: Number(e.target.value) || 1 })} />
+                    <Label htmlFor={`ls-room-width-${r.id}`}>Ancho (m)</Label>
+                    <Input id={`ls-room-width-${r.id}`} type="number" step="0.5" min="1" value={String(r.width_m)} onChange={(e) => patchRoom(r.id, { width_m: Number(e.target.value) || 1 })} />
                   </div>
                   <div className="space-y-1">
-                    <Label>Largo (m)</Label>
-                    <Input type="number" step="0.5" min="1" value={String(r.length_m)} onChange={(e) => patchRoom(r.id, { length_m: Number(e.target.value) || 1 })} />
+                    <Label htmlFor={`ls-room-length-${r.id}`}>Largo (m)</Label>
+                    <Input id={`ls-room-length-${r.id}`} type="number" step="0.5" min="1" value={String(r.length_m)} onChange={(e) => patchRoom(r.id, { length_m: Number(e.target.value) || 1 })} />
                   </div>
                 </div>
               </div>
@@ -145,15 +159,15 @@ export function LayoutSettingsDialog({
           </div>
 
           <div className="space-y-1">
-            <Label>Aviso de mantenimiento (días antes)</Label>
-            <Input type="number" min="0" max="60" value={notice} onChange={(e) => setNotice(e.target.value)} />
+            <Label htmlFor="ls-notice">Aviso de mantenimiento (días antes)</Label>
+            <Input id="ls-notice" type="number" min="0" max="60" value={notice} onChange={(e) => setNotice(e.target.value)} />
           </div>
 
           <div className="space-y-2">
-            <Label>Zonas</Label>
+            <Label htmlFor="ls-new-zone">Zonas</Label>
             <div className="flex gap-2">
-              <Input value={newZone} onChange={(e) => setNewZone(e.target.value)} placeholder="Ej. Cardio" />
-              <Button variant="outline" size="sm" onClick={addZone}><Plus /></Button>
+              <Input id="ls-new-zone" value={newZone} onChange={(e) => setNewZone(e.target.value)} placeholder="Ej. Cardio" />
+              <Button variant="outline" size="sm" aria-label="Agregar zona" onClick={addZone}><Plus /></Button>
             </div>
             {zones.map((z) => (
               <div key={z.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">

@@ -9,6 +9,10 @@ const RISK_CONFIG: Record<string, { label: string; variant: RiskVariant }> = {
   low: { label: 'Bajo', variant: 'soft-success' },
   medium: { label: 'Medio', variant: 'soft-warning' },
   high: { label: 'Alto', variant: 'soft-destructive' },
+  // Niveles del motor de riesgo (risk_engine.score_to_level)
+  info: { label: 'Bajo', variant: 'soft-success' },
+  warning: { label: 'Medio', variant: 'soft-warning' },
+  critical: { label: 'Alto', variant: 'soft-destructive' },
   none: { label: 'Sin riesgo', variant: 'soft-secondary' },
 }
 

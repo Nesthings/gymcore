@@ -66,6 +66,7 @@ def _public_profile(db: Session, member: Member) -> dict:
             "photo_url": member.photo_url,
             "joined_at": member.joined_at,
             "status": member.status,
+            "share_weight": member.share_weight,
         },
         "membership": dict(membership) if membership else None,
         "stats": {
@@ -146,6 +147,26 @@ def member_share_weight(
         "notes": record.notes,
         "recorded_at": record.recorded_at,
     }
+
+
+@router.patch(
+    "/member-share/privacy",
+    summary="El socio decide si comparte su peso con el gimnasio (portal)",
+)
+def member_share_privacy(
+    body: dict,
+    token: str | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    member = _resolve_member(db, token or "")
+    if "share_weight" not in body:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="share_weight es requerido"
+        )
+    member.share_weight = bool(body.get("share_weight"))
+    db.commit()
+    db.refresh(member)
+    return {"share_weight": member.share_weight}
 
 
 @router.post(

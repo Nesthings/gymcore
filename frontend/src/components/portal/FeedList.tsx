@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Dumbbell } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -9,8 +10,8 @@ interface FeedItem {
   created_at: string
 }
 
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
+function relativeTime(iso: string, now: number): string {
+  const diff = now - new Date(iso).getTime()
   const min = Math.floor(diff / 60000)
   if (min < 1) return 'hace un momento'
   if (min < 60) return `hace ${min} min`
@@ -27,6 +28,7 @@ export function FeedList({
   items: FeedItem[] | null
   className?: string
 }) {
+  const [now] = useState(() => Date.now())
   if (!items || items.length === 0) return null
   return (
     <div className={cn('space-y-3', className)}>
@@ -39,7 +41,7 @@ export function FeedList({
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold">{p.title}</p>
               <span className="shrink-0 text-[11px] text-muted-foreground">
-                {relativeTime(p.created_at)}
+                {relativeTime(p.created_at, now)}
               </span>
             </div>
             {p.message && <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{p.message}</p>}

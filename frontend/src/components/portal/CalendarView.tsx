@@ -34,14 +34,23 @@ function fmtMin(min?: number | null) {
   return h > 0 ? `${h}h ${m}m` : `${m} min`
 }
 
+// Fecha de "hoy" en horario local (no UTC), para no marcar mal el día.
+function localTodayIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function CalendarView({
   data,
+  perspective = 'self',
   className,
 }: {
   data: { year: number; month: number; days: CalendarDay[] } | null
+  perspective?: 'self' | 'staff'
   className?: string
 }) {
   const [selected, setSelected] = useState<CalendarDay | null>(null)
+  const [todayIso] = useState(localTodayIso)
 
   const byDate = useMemo(() => {
     const map = new Map<string, CalendarDay>()
@@ -61,11 +70,13 @@ export function CalendarView({
 
   if (!data) return null
 
+  const heading = perspective === 'staff' ? 'Calendario' : 'Mi calendario'
+
   return (
     <div className={cn('space-y-3', className)}>
       <h2 className="flex items-center gap-2 text-sm font-semibold">
         <CalendarDays className="size-4 text-primary" aria-hidden="true" />
-        Mi calendario · {MONTHS[data.month - 1]} {data.year}
+        {heading} · {MONTHS[data.month - 1]} {data.year}
       </h2>
 
       <div className="rounded-xl border border-border bg-card p-3">
@@ -79,7 +90,7 @@ export function CalendarView({
             if (n == null) return <span key={`e-${i}`} />
             const iso = `${data.year}-${String(data.month).padStart(2, '0')}-${String(n).padStart(2, '0')}`
             const day = byDate.get(iso)
-            const today = new Date().toISOString().slice(0, 10) === iso
+            const today = todayIso === iso
             return (
               <button
                 key={i}

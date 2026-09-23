@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils'
 interface MemberOption {
   id: string
   full_name: string
-  email?: string | null
   photo_url?: string | null
   membership?: { plan_name?: string | null } | null
 }
@@ -43,6 +42,7 @@ export function CheckinScanner({
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState<CheckinResult | null>(null)
+  const [activeIndex, setActiveIndex] = useState(-1)
   const { toast } = useToast()
   const { enabled: scannerEnabled, scanRate } = useScanner()
 
@@ -63,7 +63,10 @@ export function CheckinScanner({
         `/members?search=${encodeURIComponent(query.trim())}&limit=6&status=active`,
       )
         .then((res) => {
-          if (alive) setResults(res)
+          if (alive) {
+            setResults(res)
+            setActiveIndex(-1)
+          }
         })
         .catch(() => undefined)
     }, 150)
@@ -77,7 +80,35 @@ export function CheckinScanner({
     setQuery('')
     setResults([])
     setSelected(null)
+    setActiveIndex(-1)
   }, [])
+
+  const choose = useCallback((m: MemberOption) => {
+    setSelected(m)
+    setResults([])
+    setQuery(m.full_name)
+    setActiveIndex(-1)
+  }, [])
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (results.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.min(i + 1, results.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      const m = results[activeIndex]
+      if (m) {
+        e.preventDefault()
+        choose(m)
+      }
+    } else if (e.key === 'Escape') {
+      setResults([])
+      setActiveIndex(-1)
+    }
+  }
 
   const handleQr = useCallback(
     async (data: string) => {
@@ -253,7 +284,17 @@ export function CheckinScanner({
                 setSelected(null)
               }}
               onClear={clear}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Buscar socio por nombre o correo…"
+              role="combobox"
+              aria-expanded={!selected && results.length > 0}
+              aria-controls="checkin-member-list"
+              aria-autocomplete="list"
+              aria-activedescendant={
+                activeIndex >= 0 && results[activeIndex]
+                  ? `checkin-option-${results[activeIndex].id}`
+                  : undefined
+              }
             />
             {!scannerEnabled && (
               <Button
@@ -277,23 +318,34 @@ export function CheckinScanner({
           )}
 
           {cameraError && (
-            <p className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-warning">
+            <p
+              role="alert"
+              className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-warning"
+            >
               {cameraError}
             </p>
           )}
 
           {!selected && results.length > 0 && (
-            <div className="overflow-hidden rounded-xl border border-border">
-              {results.map((m) => (
+            <div
+              id="checkin-member-list"
+              role="listbox"
+              aria-label="Resultados de socios"
+              className="overflow-hidden rounded-xl border border-border"
+            >
+              {results.map((m, i) => (
                 <button
                   key={m.id}
+                  id={`checkin-option-${m.id}`}
                   type="button"
-                  onClick={() => {
-                    setSelected(m)
-                    setResults([])
-                    setQuery(m.full_name)
-                  }}
-                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                  role="option"
+                  aria-selected={i === activeIndex}
+                  onClick={() => choose(m)}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className={cn(
+                    'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent',
+                    i === activeIndex && 'bg-accent',
+                  )}
                 >
                   <Avatar
                     src={m.photo_url}
@@ -304,11 +356,6 @@ export function CheckinScanner({
                     <span className="block truncate text-sm font-medium text-foreground">
                       {m.full_name}
                     </span>
-                    {m.email && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {m.email}
-                      </span>
-                    )}
                   </span>
                   {m.membership?.plan_name && (
                     <span className="shrink-0 text-xs text-muted-foreground">

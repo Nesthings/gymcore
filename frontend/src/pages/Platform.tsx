@@ -20,7 +20,6 @@ import {
   QrCode,
   RefreshCw,
   RotateCcw,
-  Send,
   ShieldCheck,
   Users,
 } from 'lucide-react'
@@ -31,6 +30,14 @@ import { Label } from '@/components/ui/label'
 import { OtpInput } from '@/components/ui/otp-input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { apiFetch } from '@/lib/api'
@@ -143,9 +150,17 @@ export function Platform() {
   const [search, setSearch] = useState('')
   const [resetFor, setResetFor] = useState<StaffUser | null>(null)
   const [newPassword, setNewPassword] = useState('')
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string
+    description: string
+    confirmLabel: string
+    run: () => void | Promise<void>
+  } | null>(null)
 
   const [gyms, setGyms] = useState<GymRow[]>([])
   const [gymSearch, setGymSearch] = useState('')
+  const [gymStatus, setGymStatus] = useState('all')
+  const [gymSort, setGymSort] = useState<'name_asc' | 'name_desc'>('name_asc')
   const [detailId, setDetailId] = useState<string | null>(null)
   const [summary, setSummary] = useState<GymSummary | null>(null)
   const [gymStaff, setGymStaff] = useState<StaffUser[]>([])
@@ -162,13 +177,6 @@ export function Platform() {
   const [resolveFiles, setResolveFiles] = useState<File[]>([])
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [ticketError, setTicketError] = useState<string | null>(null)
-
-  // Reporte de problemas desde la plataforma
-  const [ptSubject, setPtSubject] = useState('')
-  const [ptDescription, setPtDescription] = useState('')
-  const [ptFiles, setPtFiles] = useState<File[]>([])
-  const [ptSubmitting, setPtSubmitting] = useState(false)
-  const [ptError, setPtError] = useState<string | null>(null)
 
   // Estado 2FA del super-admin
   const [totpEnabled, setTotpEnabled] = useState(false)
@@ -451,31 +459,6 @@ export function Platform() {
     }
   }
 
-  const sendPlatformTicket = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setPtError(null)
-    if (!ptSubject.trim() || !ptDescription.trim()) {
-      setPtError('Escribe un asunto y describe el problema.')
-      return
-    }
-    setPtSubmitting(true)
-    try {
-      const form = new FormData()
-      form.append('subject', ptSubject.trim())
-      form.append('description', ptDescription.trim())
-      for (const f of ptFiles) form.append('files', f)
-      await apiFetch('/support-tickets', { method: 'POST', body: form })
-      setPtSubject('')
-      setPtDescription('')
-      setPtFiles([])
-      await loadTickets()
-    } catch (err) {
-      setPtError(err instanceof Error ? err.message : 'No se pudo enviar el reporte')
-    } finally {
-      setPtSubmitting(false)
-    }
-  }
-
   const modules: { key: typeof tab; icon: React.ElementType; title: string; description: string; badge: number }[] = [
     { key: 'links', icon: Link2, title: 'Links de invitación', description: 'Genera enlaces únicos para crear gimnasios', badge: pendingInvites },
     { key: 'gyms', icon: Building2, title: 'Gimnasios', description: 'Suscripciones, staff, sucursales y socios', badge: 0 },
@@ -512,7 +495,11 @@ export function Platform() {
       </div>
 
       <div className="mb-4 min-h-[20px]">
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
       </div>
 
       {tab === 'home' ? (
@@ -567,16 +554,16 @@ export function Platform() {
                 <form onSubmit={generate} className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
-                      <Label>Nombre del gimnasio</Label>
-                      <Input value={invName} onChange={(e) => setInvName(e.target.value)} placeholder="Opcional" />
+                      <Label htmlFor="inv-name">Nombre del gimnasio</Label>
+                      <Input id="inv-name" value={invName} onChange={(e) => setInvName(e.target.value)} placeholder="Opcional" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Correo del admin</Label>
-                      <Input type="email" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} placeholder="Opcional" />
+                      <Label htmlFor="inv-email">Correo del admin</Label>
+                      <Input id="inv-email" type="email" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} placeholder="Opcional" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Vence en (días)</Label>
-                      <Input type="number" min={1} value={invDays} onChange={(e) => setInvDays(e.target.value)} />
+                      <Label htmlFor="inv-days">Vence en (días)</Label>
+                      <Input id="inv-days" type="number" min={1} value={invDays} onChange={(e) => setInvDays(e.target.value)} />
                     </div>
                   </div>
                   <Button type="submit" size="sm">
@@ -641,7 +628,20 @@ export function Platform() {
                                 : 'Pendiente'}
                         </Badge>
                         {inv.status === 'pending' && (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => revoke(inv.id)}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setConfirmAction({
+                                title: '¿Revocar esta invitación?',
+                                description:
+                                  'El enlace de invitación dejará de funcionar de inmediato.',
+                                confirmLabel: 'Revocar',
+                                run: () => revoke(inv.id),
+                              })
+                            }
+                          >
                             Revocar
                           </Button>
                         )}
@@ -664,19 +664,51 @@ export function Platform() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Input
-                  value={gymSearch}
-                  onChange={(e) => setGymSearch(e.target.value)}
-                  placeholder="Buscar gimnasio…"
-                  className="max-w-sm"
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    value={gymSearch}
+                    onChange={(e) => setGymSearch(e.target.value)}
+                    placeholder="Buscar gimnasio…"
+                    className="max-w-sm"
+                  />
+                  <Select value={gymStatus} onValueChange={setGymStatus}>
+                    <SelectTrigger className="w-40" aria-label="Filtrar por estado">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      <SelectItem value="active">Activas</SelectItem>
+                      <SelectItem value="trial">Prueba</SelectItem>
+                      <SelectItem value="suspended">Suspendidas</SelectItem>
+                      <SelectItem value="cancelled">Canceladas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={gymSort} onValueChange={(v) => setGymSort(v as typeof gymSort)}>
+                    <SelectTrigger className="w-40" aria-label="Ordenar">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name_asc">Nombre (A-Z)</SelectItem>
+                      <SelectItem value="name_desc">Nombre (Z-A)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {loadingGyms ? (
                   <p className="text-sm text-muted-foreground">Cargando gimnasios…</p>
                 ) : (
                   <div className="space-y-3">
                     {gyms
-                      .filter((g) => g.name.toLowerCase().includes(gymSearch.trim().toLowerCase()))
+                      .filter(
+                        (g) =>
+                          (gymStatus === 'all' || g.subscription_status === gymStatus) &&
+                          g.name.toLowerCase().includes(gymSearch.trim().toLowerCase()),
+                      )
+                      .sort((a, b) =>
+                        gymSort === 'name_desc'
+                          ? b.name.localeCompare(a.name, 'es')
+                          : a.name.localeCompare(b.name, 'es'),
+                      )
                       .map((g) => {
                         const st = SUBSCRIPTION_LABEL[g.subscription_status] ?? {
                           label: g.subscription_status,
@@ -784,7 +816,15 @@ export function Platform() {
                                       size="sm"
                                       variant="outline"
                                       className="text-destructive"
-                                      onClick={() => setSubscription(g.id, 'cancelled')}
+                                      onClick={() =>
+                                        setConfirmAction({
+                                          title: `¿Cancelar ${g.name}?`,
+                                          description:
+                                            'El gimnasio y su staff quedarán bloqueados. Esta acción no se puede deshacer.',
+                                          confirmLabel: 'Cancelar gimnasio',
+                                          run: () => setSubscription(g.id, 'cancelled'),
+                                        })
+                                      }
                                     >
                                       Cancelar
                                     </Button>
@@ -852,8 +892,8 @@ export function Platform() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label>Buscar usuario</Label>
-                  <Input value={search} onChange={(e) => searchUsers(e.target.value)} placeholder="Correo o nombre…" />
+                  <Label htmlFor="platform-user-search">Buscar usuario</Label>
+                  <Input id="platform-user-search" value={search} onChange={(e) => searchUsers(e.target.value)} placeholder="Correo o nombre…" />
                 </div>
 
                 {users.length > 0 && (
@@ -889,7 +929,19 @@ export function Platform() {
                       minLength={8}
                       placeholder="Mínimo 8 caracteres"
                     />
-                    <Button type="button" size="sm" onClick={resetPassword}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() =>
+                        setConfirmAction({
+                          title: `¿Restablecer la contraseña de ${resetFor.full_name}?`,
+                          description:
+                            'Se cambiará su acceso de inmediato. Comunícale la nueva contraseña.',
+                          confirmLabel: 'Restablecer',
+                          run: resetPassword,
+                        })
+                      }
+                    >
                       Restablecer contraseña
                     </Button>
                   </div>
@@ -926,7 +978,7 @@ export function Platform() {
                     <div className="flex flex-wrap items-end gap-2">
                       <div className="w-full space-y-1.5">
                         <Label htmlFor="platform-totp-disable-code">Código actual</Label>
-                        <OtpInput value={totpCode} onChange={setTotpCode} disabled={totpCodeLoading} />
+                        <OtpInput id="platform-totp-disable-code" value={totpCode} onChange={setTotpCode} disabled={totpCodeLoading} />
                         {totpCodeError && <p className="text-xs text-destructive">{totpCodeError}</p>}
                       </div>
                       <Button type="button" variant="outline" onClick={disableTotp} disabled={totpCodeLoading}>
@@ -946,7 +998,7 @@ export function Platform() {
                       </div>
                       <div className="w-full max-w-xs space-y-2">
                         <Label htmlFor="platform-totp-code">Código de 6 dígitos</Label>
-                        <OtpInput value={totpCode} onChange={setTotpCode} disabled={totpCodeLoading} />
+                        <OtpInput id="platform-totp-code" value={totpCode} onChange={setTotpCode} disabled={totpCodeLoading} />
                         {totpCodeError && <p className="text-xs text-destructive">{totpCodeError}</p>}
                         <div className="flex gap-2">
                           <Button type="button" size="sm" onClick={confirmTotp} disabled={totpCodeLoading}>
@@ -969,8 +1021,8 @@ export function Platform() {
                     </div>
                     <div className="flex items-end gap-2">
                       <div className="w-full max-w-xs space-y-1.5">
-                        <Label htmlFor="platform-totp-disable-code">Código actual (si desactivás)</Label>
-                        <OtpInput value={totpCode} onChange={setTotpCode} disabled={totpCodeLoading} />
+                        <Label htmlFor="platform-totp-recovery-code">Código actual (si lo desactivas)</Label>
+                        <OtpInput id="platform-totp-recovery-code" value={totpCode} onChange={setTotpCode} disabled={totpCodeLoading} />
                         {totpCodeError && <p className="text-xs text-destructive">{totpCodeError}</p>}
                       </div>
                       <Button type="button" variant="outline" onClick={startTotpSetup} disabled={totpSetupLoading}>
@@ -985,73 +1037,6 @@ export function Platform() {
           </TabsContent>
 
           <TabsContent value="tickets" className="space-y-4">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CircleHelp className="size-5 text-primary" /> Reportar un problema de la plataforma
-                </CardTitle>
-                <CardDescription>
-                  Envía un ticket de soporte como administrador de la plataforma.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={sendPlatformTicket} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label>Asunto</Label>
-                    <Input
-                      value={ptSubject}
-                      onChange={(e) => setPtSubject(e.target.value)}
-                      placeholder="ej. No puedo cargar la lista de gimnasios"
-                      maxLength={200}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Descripción</Label>
-                    <Textarea
-                      value={ptDescription}
-                      onChange={(e) => setPtDescription(e.target.value)}
-                      placeholder="Describe el problema con detalle…"
-                      rows={3}
-                      maxLength={5000}
-                      required
-                    />
-                  </div>
-                  <input
-                    id="platform-ticket-files"
-                    type="file"
-                    multiple
-                    accept=".jpg,.jpeg,.png,.webp,.pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      setPtFiles(Array.from(e.target.files ?? []).slice(0, 5))
-                      e.currentTarget.value = ''
-                    }}
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => document.getElementById('platform-ticket-files')?.click()}
-                    >
-                      <Paperclip /> Adjuntos ({ptFiles.length})
-                    </Button>
-                    {ptFiles.length > 0 && (
-                      <span className="max-w-60 truncate text-xs text-muted-foreground">
-                        {ptFiles.map((f) => f.name).join(', ')}
-                      </span>
-                    )}
-                    <Button type="submit" size="sm" disabled={ptSubmitting} className="ml-auto">
-                      {ptSubmitting ? <Loader2 className="animate-spin" /> : <Send className="size-4" />}
-                      Enviar reporte
-                    </Button>
-                  </div>
-                  {ptError && <p className="text-sm text-destructive">{ptError}</p>}
-                </form>
-              </CardContent>
-            </Card>
-
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1087,7 +1072,7 @@ export function Platform() {
                             </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
-                            <Badge variant={resolved ? 'success' : 'warning'}>
+                            <Badge variant={resolved ? 'soft-success' : 'soft-warning'}>
                               {resolved ? 'Resuelto' : 'Abierto'}
                             </Badge>
                             {open ? (
@@ -1231,6 +1216,20 @@ export function Platform() {
         <Dumbbell className="size-3.5" aria-hidden="true" />
         Consola de plataforma: invita y administra gimnasios.
       </p>
+
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title={confirmAction?.title ?? ''}
+        description={confirmAction?.description}
+        confirmLabel={confirmAction?.confirmLabel}
+        variant="destructive"
+        onConfirm={async () => {
+          const action = confirmAction
+          setConfirmAction(null)
+          await action?.run()
+        }}
+      />
     </div>
   )
 }

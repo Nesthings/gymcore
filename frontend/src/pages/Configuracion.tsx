@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Building2,
   Loader2,
@@ -25,6 +25,9 @@ import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { PageHeader } from '@/components/ui/page-header'
+import { SearchInput } from '@/components/ui/search-input'
 import { OtpInput } from '@/components/ui/otp-input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ComunicadosSection } from '@/components/settings/ComunicadosSection'
@@ -73,7 +76,10 @@ export function Configuracion() {
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ title: string; onConfirm: () => void } | null>(null)
+  const [userSearch, setUserSearch] = useState('')
+  const [branchSearch, setBranchSearch] = useState('')
 
   // Estado 2FA del admin del gimnasio
   const [totpEnabled, setTotpEnabled] = useState(false)
@@ -227,7 +233,7 @@ export function Configuracion() {
       })
       load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar el usuario')
+      setActionError(err instanceof Error ? err.message : 'No se pudo actualizar el usuario')
     }
   }
 
@@ -239,7 +245,7 @@ export function Configuracion() {
           await apiFetch(`/branches/${branch.id}`, { method: 'DELETE' })
           load()
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'No se pudo eliminar la sucursal')
+          setActionError(err instanceof Error ? err.message : 'No se pudo eliminar la sucursal')
         }
         setConfirm(null)
       },
@@ -268,7 +274,7 @@ export function Configuracion() {
       setGymSuccess(true)
       load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar el gimnasio')
+      setActionError(err instanceof Error ? err.message : 'No se pudo guardar el gimnasio')
     } finally {
       setSavingGym(false)
     }
@@ -282,25 +288,51 @@ export function Configuracion() {
       await apiFetch('/gyms/me/logo', { method: 'POST', body: form })
       load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo subir el logo')
+      setActionError(err instanceof Error ? err.message : 'No se pudo subir el logo')
     }
   }
 
   const setGymField = (field: keyof typeof gymForm, value: string) =>
     setGymForm((prev) => ({ ...prev, [field]: value }))
 
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase()
+    if (!q) return users
+    return users.filter(
+      (u) => u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+    )
+  }, [users, userSearch])
+
+  const filteredBranches = useMemo(() => {
+    const q = branchSearch.trim().toLowerCase()
+    if (!q) return branches
+    return branches.filter((b) => b.name.toLowerCase().includes(q))
+  }, [branches, branchSearch])
+
   return (
     <AppLayout>
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          Configuración del gimnasio
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Usuarios, sucursales y datos del gimnasio
-        </p>
-      </div>
+      <PageHeader
+        title="Configuración del gimnasio"
+        subtitle="Usuarios, sucursales y datos del gimnasio"
+        icon={Settings2}
+      />
 
       {error && <ErrorState description={error} onRetry={load} className="mb-6" />}
+      {actionError && (
+        <div
+          role="alert"
+          className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
       {loading && <LoadingState label="Cargando configuración…" />}
 
       {!loading && !error && (
@@ -334,10 +366,24 @@ export function Configuracion() {
                   <Plus /> Nuevo usuario
                 </Button>
               </div>
+              {users.length > 0 && (
+                <ListToolbar>
+                  <SearchInput
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    onClear={() => setUserSearch('')}
+                    placeholder="Buscar usuario…"
+                    className="w-full sm:w-64"
+                    aria-label="Buscar usuario"
+                  />
+                </ListToolbar>
+              )}
               {users.length === 0 ? (
                 <EmptyState title="Sin usuarios" description="Crea la primera cuenta de staff." />
+              ) : filteredUsers.length === 0 ? (
+                <EmptyState title="Sin resultados" description="Ajusta la búsqueda." />
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -350,7 +396,7 @@ export function Configuracion() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((u) => (
+                      {filteredUsers.map((u) => (
                         <TableRow key={u.id}>
                           <TableCell className="font-medium">{u.full_name}</TableCell>
                           <TableCell className="hidden lg:table-cell">
@@ -426,8 +472,9 @@ export function Configuracion() {
                         </div>
                         <div className="flex flex-wrap items-end gap-2">
                           <div className="w-full max-w-xs space-y-1.5">
-                            <Label>Código actual</Label>
+                            <Label htmlFor="cfg-totp-disable">Código actual</Label>
                             <OtpInput
+                              id="cfg-totp-disable"
                               value={totpCode}
                               onChange={setTotpCode}
                               disabled={totpCodeLoading}
@@ -461,8 +508,9 @@ export function Configuracion() {
                             />
                           </div>
                           <div className="w-full max-w-xs space-y-2">
-                            <Label>Código de 6 dígitos</Label>
+                            <Label htmlFor="cfg-totp-code">Código de 6 dígitos</Label>
                             <OtpInput
+                              id="cfg-totp-code"
                               value={totpCode}
                               onChange={setTotpCode}
                               disabled={totpCodeLoading}
@@ -530,10 +578,24 @@ export function Configuracion() {
                   <Plus /> Nueva sucursal
                 </Button>
               </div>
+              {branches.length > 0 && (
+                <ListToolbar>
+                  <SearchInput
+                    value={branchSearch}
+                    onChange={(e) => setBranchSearch(e.target.value)}
+                    onClear={() => setBranchSearch('')}
+                    placeholder="Buscar sucursal…"
+                    className="w-full sm:w-64"
+                    aria-label="Buscar sucursal"
+                  />
+                </ListToolbar>
+              )}
               {branches.length === 0 ? (
                 <EmptyState title="Sin sucursales" description="Crea tu primera sucursal." />
+              ) : filteredBranches.length === 0 ? (
+                <EmptyState title="Sin resultados" description="Ajusta la búsqueda." />
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -544,7 +606,7 @@ export function Configuracion() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {branches.map((b) => (
+                      {filteredBranches.map((b) => (
                         <TableRow key={b.id}>
                           <TableCell className="font-medium">{b.name}</TableCell>
                           <TableCell>{b.address ?? '—'}</TableCell>
@@ -605,25 +667,34 @@ export function Configuracion() {
                           className="hidden"
                           onChange={(e) => {
                             const f = e.target.files?.[0]
-                            if (f) uploadLogo(f)
+                            if (f) {
+                              if (!f.type.startsWith('image/')) {
+                                setActionError('El logo debe ser una imagen')
+                              } else if (f.size > 5 * 1024 * 1024) {
+                                setActionError('La imagen supera el límite de 5 MB')
+                              } else {
+                                uploadLogo(f)
+                              }
+                            }
                             e.currentTarget.value = ''
                           }}
                         />
-                        <Button type="button" variant="outline" size="sm">
-                          <label
-                            htmlFor="gym-logo"
-                            className="flex cursor-pointer items-center gap-2"
-                          >
-                            {gym?.logo_url ? 'Cambiar logo' : 'Subir logo'}
-                          </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('gym-logo')?.click()}
+                        >
+                          {gym?.logo_url ? 'Cambiar logo' : 'Subir logo'}
                         </Button>
                         <p className="text-xs text-muted-foreground">JPEG/PNG · máx. 5 MB</p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Nombre del gimnasio *</Label>
+                      <Label htmlFor="cfg-name">Nombre del gimnasio *</Label>
                       <Input
+                        id="cfg-name"
                         value={gymForm.name}
                         onChange={(e) => setGymField('name', e.target.value)}
                         required
@@ -631,31 +702,35 @@ export function Configuracion() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Nombre de contacto</Label>
+                        <Label htmlFor="cfg-contact-name">Nombre de contacto</Label>
                         <Input
+                          id="cfg-contact-name"
                           value={gymForm.contact_name}
                           onChange={(e) => setGymField('contact_name', e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Teléfono</Label>
+                        <Label htmlFor="cfg-contact-phone">Teléfono</Label>
                         <Input
+                          id="cfg-contact-phone"
                           value={gymForm.contact_phone}
                           onChange={(e) => setGymField('contact_phone', e.target.value)}
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Correo de contacto</Label>
+                      <Label htmlFor="cfg-contact-email">Correo de contacto</Label>
                       <Input
+                        id="cfg-contact-email"
                         type="email"
                         value={gymForm.contact_email}
                         onChange={(e) => setGymField('contact_email', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Dirección</Label>
+                      <Label htmlFor="cfg-address">Dirección</Label>
                       <Input
+                        id="cfg-address"
                         value={gymForm.address}
                         onChange={(e) => setGymField('address', e.target.value)}
                         placeholder="Calle, número, colonia, ciudad"
@@ -663,16 +738,18 @@ export function Configuracion() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>RFC</Label>
+                        <Label htmlFor="cfg-rfc">RFC</Label>
                         <Input
+                          id="cfg-rfc"
                           value={gymForm.rfc}
                           onChange={(e) => setGymField('rfc', e.target.value)}
                           placeholder="Para recibos y facturación"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Razón social</Label>
+                        <Label htmlFor="cfg-fiscal">Razón social</Label>
                         <Input
+                          id="cfg-fiscal"
                           value={gymForm.fiscal_name}
                           onChange={(e) => setGymField('fiscal_name', e.target.value)}
                         />
@@ -680,8 +757,9 @@ export function Configuracion() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Zona horaria</Label>
+                        <Label htmlFor="cfg-timezone">Zona horaria</Label>
                         <select
+                          id="cfg-timezone"
                           value={gymForm.timezone}
                           onChange={(e) => setGymField('timezone', e.target.value)}
                           className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
@@ -701,8 +779,9 @@ export function Configuracion() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Moneda</Label>
+                        <Label htmlFor="cfg-currency">Moneda</Label>
                         <select
+                          id="cfg-currency"
                           value={gymForm.currency}
                           onChange={(e) => setGymField('currency', e.target.value)}
                           className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
@@ -719,8 +798,9 @@ export function Configuracion() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Protección de racha (días)</Label>
+                        <Label htmlFor="cfg-streak">Protección de racha (días)</Label>
                         <Input
+                          id="cfg-streak"
                           type="number"
                           min={0}
                           max={7}

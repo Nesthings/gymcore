@@ -14,19 +14,22 @@ export interface Achievement {
 
 export function AchievementsGrid({
   data,
+  perspective = 'self',
   className,
 }: {
   data: { summary: { unlocked: number; locked: number; total: number }; items: Achievement[] } | null
+  perspective?: 'self' | 'staff'
   className?: string
 }) {
   if (!data) return null
   const { summary, items } = data
+  const heading = perspective === 'staff' ? 'Logros' : 'Mis logros'
 
   return (
     <div className={cn('space-y-3', className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <Award className="size-4 text-primary" aria-hidden="true" /> Tus logros
+          <Award className="size-4 text-primary" aria-hidden="true" /> {heading}
         </h2>
         <p className="text-xs text-muted-foreground">
           <span className="font-semibold text-primary">🏆 {summary.unlocked} desbloqueados</span>

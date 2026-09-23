@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, History, LogIn, LogOut } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -57,16 +58,15 @@ function RowSkeleton() {
  */
 export function TodayCheckins({
   refreshKey,
-  onCheckedOut,
 }: {
   refreshKey: number
-  onCheckedOut?: () => void
 }) {
   const [checkins, setCheckins] = useState<TodayCheckin[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const [closingId, setClosingId] = useState<string | null>(null)
+  const [confirmClose, setConfirmClose] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const { toast } = useToast()
   const { lastResult } = useScanner()
@@ -122,7 +122,6 @@ export function TodayCheckins({
               : c,
           ),
         )
-        onCheckedOut?.()
       } catch (err) {
         toast({
           title: 'No se pudo cerrar la sesión',
@@ -133,7 +132,7 @@ export function TodayCheckins({
         setClosingId(null)
       }
     },
-    [toast, onCheckedOut],
+    [toast],
   )
 
   if (error) {
@@ -231,7 +230,7 @@ export function TodayCheckins({
                       variant="outline"
                       className="shrink-0"
                       disabled={closingId === c.id}
-                      onClick={() => closeSession(c.id)}
+                      onClick={() => setConfirmClose(c.id)}
                     >
                       <LogOut /> Salida
                     </Button>
@@ -289,6 +288,20 @@ export function TodayCheckins({
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(confirmClose)}
+        onOpenChange={(open) => !open && setConfirmClose(null)}
+        title="¿Registrar la salida?"
+        description="Se cerrará la sesión del socio y se calculará el tiempo de entrenamiento."
+        confirmLabel="Registrar salida"
+        variant="default"
+        onConfirm={() => {
+          const id = confirmClose
+          setConfirmClose(null)
+          if (id) closeSession(id)
+        }}
+      />
     </div>
   )
 }

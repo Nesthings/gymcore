@@ -120,6 +120,24 @@ def require_component(*components: str):
     return dependency
 
 
+def require_component_roles(component: str, *roles: str):
+    """Exige un componente Y (opcionalmente) uno de los roles dados.
+
+    Útil para datos sensibles: p. ej. finanzas visible solo para admin/recepción
+    que además tengan el componente habilitado.
+    """
+
+    def dependency(ctx: CurrentGym = Depends(require_component(component))) -> CurrentGym:
+        if roles and ctx.user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos para esta acción",
+            )
+        return ctx
+
+    return dependency
+
+
 @dataclass
 class CurrentGym:
     user: CurrentUser

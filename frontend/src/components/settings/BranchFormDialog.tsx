@@ -75,18 +75,22 @@ export function BranchFormDialog({
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
           <div className="space-y-2">
-            <Label>Nombre *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+            <Label htmlFor="bf-name">Nombre *</Label>
+            <Input id="bf-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label>Dirección</Label>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Label htmlFor="bf-address">Dirección</Label>
+            <Input id="bf-address" value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Teléfono</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Label htmlFor="bf-phone">Teléfono</Label>
+            <Input id="bf-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar

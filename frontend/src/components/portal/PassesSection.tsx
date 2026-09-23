@@ -71,7 +71,7 @@ export function PassesSection({
   const [guestPhone, setGuestPhone] = useState('')
   const [guestEmail, setGuestEmail] = useState('')
   const [generating, setGenerating] = useState(false)
-  const [generated, setGenerated] = useState<{ token: string; share_url: string; expires_at: string; guest_name?: string | null } | null>(null)
+  const [generated, setGenerated] = useState<{ id: string; token: string; share_url: string; expires_at: string; guest_name?: string | null } | null>(null)
   const [qr, setQr] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
@@ -128,7 +128,7 @@ export function PassesSection({
     if (policy?.ask_phone && guestPhone.trim()) body.guest_phone = guestPhone.trim()
     if (policy?.ask_email && guestEmail.trim()) body.guest_email = guestEmail.trim()
     try {
-      const res = await apiFetch<{ token: string; share_url: string; expires_at: string; guest_name?: string | null }>(
+      const res = await apiFetch<{ id: string; token: string; share_url: string; expires_at: string; guest_name?: string | null }>(
         `/member-share/passes/generate?token=${encodeURIComponent(token)}`,
         { method: 'POST', body: JSON.stringify(body) },
       )
@@ -144,10 +144,9 @@ export function PassesSection({
   const cancel = async () => {
     if (!generated) return
     try {
-      const passId = data?.history.find((h) => h.status === 'generated')?.id
-      if (passId) {
-        await apiFetch(`/member-share/passes/${passId}/cancel?token=${encodeURIComponent(token)}`, { method: 'POST' })
-      }
+      // Cancela exactamente el pase recién generado (por id), no el primero
+      // que aparezca en el historial.
+      await apiFetch(`/member-share/passes/${generated.id}/cancel?token=${encodeURIComponent(token)}`, { method: 'POST' })
     } catch {
       // best-effort
     }
@@ -206,7 +205,7 @@ export function PassesSection({
         )}
         {policy.pass_type == null && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Tu plan actual no incluye pases.
+            Mi plan actual no incluye pases.
           </p>
         )}
       </div>
@@ -254,8 +253,9 @@ export function PassesSection({
             <form onSubmit={generate} className="space-y-3">
               {policy.requires_guest && (
                 <div className="space-y-1.5">
-                  <Label>¿A quién vas a invitar? *</Label>
+                  <Label htmlFor="pass-guest-name">¿A quién vas a invitar? *</Label>
                   <Input
+                    id="pass-guest-name"
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
                     placeholder="Nombre del invitado"
@@ -265,14 +265,14 @@ export function PassesSection({
               )}
               {policy.ask_phone && (
                 <div className="space-y-1.5">
-                  <Label>Teléfono (opcional)</Label>
-                  <Input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="55 1234 5678" />
+                  <Label htmlFor="pass-guest-phone">Teléfono (opcional)</Label>
+                  <Input id="pass-guest-phone" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="55 1234 5678" />
                 </div>
               )}
               {policy.ask_email && (
                 <div className="space-y-1.5">
-                  <Label>Correo (opcional)</Label>
-                  <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder="invitado@correo.com" />
+                  <Label htmlFor="pass-guest-email">Correo (opcional)</Label>
+                  <Input id="pass-guest-email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder="invitado@correo.com" />
                 </div>
               )}
               <p className="text-xs text-muted-foreground">

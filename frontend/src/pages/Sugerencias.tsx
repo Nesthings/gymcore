@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CheckCheck, Inbox, MessageSquare } from 'lucide-react'
 
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -83,19 +84,18 @@ export function Sugerencias() {
   return (
     <AppLayout>
       <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Buzón de sugerencias</h1>
-            <p className="text-sm text-muted-foreground">
-              Comentarios que los socios envían desde su portal.
-            </p>
-          </div>
-          {unread > 0 && (
-            <Button size="sm" variant="outline" onClick={markAll}>
-              <CheckCheck /> Marcar todas ({unread})
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          title="Buzón de sugerencias"
+          subtitle="Comentarios que los socios envían desde su portal."
+          icon={Inbox}
+          actions={
+            unread > 0 ? (
+              <Button size="sm" variant="outline" onClick={markAll}>
+                <CheckCheck /> Marcar todas ({unread})
+              </Button>
+            ) : undefined
+          }
+        />
 
         {error && (
           <ErrorState
@@ -142,7 +142,7 @@ export function Sugerencias() {
                           minute: '2-digit',
                         })}
                       </span>
-                      <Badge variant={s.status === 'new' ? 'warning' : 'secondary'}>
+                      <Badge variant={s.status === 'new' ? 'soft-warning' : 'soft-secondary'}>
                         {s.status === 'new' ? 'Nueva' : 'Leída'}
                       </Badge>
                     </div>

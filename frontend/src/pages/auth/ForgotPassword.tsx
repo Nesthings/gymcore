@@ -30,7 +30,9 @@ export function ForgotPassword() {
         body: JSON.stringify({ email }),
       })
       setMessage(res.message)
-      setDevToken(res.reset_token ?? null)
+      // El token de reset solo se muestra en desarrollo; en producción nunca
+      // debe llegar a la UI (se envía por correo).
+      setDevToken(import.meta.env.DEV ? (res.reset_token ?? null) : null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al solicitar la recuperación')
     } finally {
@@ -87,7 +89,7 @@ export function ForgotPassword() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </div>

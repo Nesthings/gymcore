@@ -177,8 +177,9 @@ export function AssignPlanDialog({
         <form onSubmit={submit} className="grid gap-4">
           {!memberId && (
             <div className="space-y-2">
-              <Label>Socio *</Label>
+              <Label htmlFor="assign-member">Socio *</Label>
               <Input
+                id="assign-member"
                 value={memberQuery}
                 onChange={(e) => setMemberQuery(e.target.value)}
                 placeholder="Buscar por nombre o correo…"
@@ -245,7 +246,7 @@ export function AssignPlanDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Plan *</Label>
+            <Label htmlFor="assign-plan">Plan *</Label>
             <Select
               value={planId}
               onValueChange={(value) => {
@@ -254,7 +255,7 @@ export function AssignPlanDialog({
                 if (plan) setPaidAmount(String(plan.price))
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="assign-plan" className="w-full" aria-label="Plan">
                 <SelectValue placeholder="Selecciona un plan" />
               </SelectTrigger>
               <SelectContent>
@@ -268,8 +269,9 @@ export function AssignPlanDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Fecha de inicio</Label>
+            <Label htmlFor="assign-start">Fecha de inicio</Label>
             <Input
+              id="assign-start"
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -278,8 +280,9 @@ export function AssignPlanDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Monto pagado</Label>
+              <Label htmlFor="assign-amount">Monto pagado</Label>
               <Input
+                id="assign-amount"
                 type="number"
                 min={0}
                 step="0.01"
@@ -289,9 +292,9 @@ export function AssignPlanDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Método</Label>
+              <Label htmlFor="assign-method">Método</Label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="assign-method" className="w-full" aria-label="Método de pago">
                   <SelectValue placeholder="Opcional" />
                 </SelectTrigger>
                 <SelectContent>

@@ -85,7 +85,7 @@ export function ResetPassword() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </div>

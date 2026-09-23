@@ -57,9 +57,16 @@ export function OccupancyStrip({ refreshKey }: { refreshKey: number }) {
       </div>
 
       {error && (
-        <p className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-warning">
+        <p
+          role="alert"
+          className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-warning"
+        >
           No se pudo actualizar la información.{' '}
-          <button className="font-medium underline" onClick={() => setTick((v) => v + 1)}>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setTick((v) => v + 1)}
+          >
             Reintentar
           </button>
         </p>

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LoadingState } from '@/components/ui/loading-state'
+import { PageHeader } from '@/components/ui/page-header'
 import { Textarea } from '@/components/ui/textarea'
 import { apiFetch } from '@/lib/api'
 
@@ -33,6 +35,7 @@ export function Profile() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
@@ -44,6 +47,8 @@ export function Profile() {
       setDescription(res.description ?? '')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cargar tu perfil')
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -52,12 +57,17 @@ export function Profile() {
   }, [load])
 
   const uploadPhoto = async (file: File) => {
+    if (!me) return
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen supera el límite de 5 MB')
+      return
+    }
     setError(null)
     setUploading(true)
     try {
       const form = new FormData()
       form.append('file', file)
-      await apiFetch(`/users/${me?.id}/photo`, { method: 'POST', body: form })
+      await apiFetch(`/users/${me.id}/photo`, { method: 'POST', body: form })
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo subir la foto')
@@ -96,13 +106,17 @@ export function Profile() {
 
   return (
     <AppLayout>
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Mi perfil</h1>
-        <p className="text-sm text-muted-foreground">Tu cuenta de staff del gimnasio</p>
-      </div>
+      <PageHeader
+        title="Mi perfil"
+        subtitle="Tu cuenta de staff del gimnasio"
+        icon={UserRound}
+      />
 
       <div className="max-w-lg space-y-6">
-        <Card className="shadow-card">
+        {loading && !me ? (
+          <LoadingState label="Cargando perfil…" />
+        ) : (
+          <Card className="shadow-card">
           <CardHeader>
             <CardTitle>Datos de la cuenta</CardTitle>
             <CardDescription className="break-all">
@@ -135,14 +149,15 @@ export function Profile() {
                       e.currentTarget.value = ''
                     }}
                   />
-                  <Button type="button" variant="outline" size="sm" disabled={uploading}>
-                    <label
-                      htmlFor="profile-photo"
-                      className="flex cursor-pointer items-center gap-2"
-                    >
-                      {uploading ? <Loader2 className="animate-spin" /> : <Camera />}
-                      {me?.photo_url ? 'Cambiar foto' : 'Subir foto'}
-                    </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploading}
+                    onClick={() => document.getElementById('profile-photo')?.click()}
+                  >
+                    {uploading ? <Loader2 className="animate-spin" /> : <Camera />}
+                    {me?.photo_url ? 'Cambiar foto' : 'Subir foto'}
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     JPEG/PNG · máx. 5 MB · se limpian metadatos
@@ -151,10 +166,11 @@ export function Profile() {
               </div>
 
               <div className="space-y-2">
-                <Label>Nombre completo</Label>
+                <Label htmlFor="profile-name">Nombre completo</Label>
                 <div className="relative">
                   <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
+                    id="profile-name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="pl-9"
@@ -163,20 +179,22 @@ export function Profile() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Cargo / puesto</Label>
+                <Label htmlFor="profile-job">Cargo / puesto</Label>
                 <Input
+                  id="profile-job"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   placeholder="ej. Coach de fuerza"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Teléfono</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <Label htmlFor="profile-phone">Teléfono</Label>
+                <Input id="profile-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Descripción</Label>
+                <Label htmlFor="profile-description">Descripción</Label>
                 <Textarea
+                  id="profile-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Breve presentación profesional…"
@@ -188,8 +206,9 @@ export function Profile() {
                 <p className="mb-3 text-sm font-medium">Cambiar contraseña</p>
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label>Contraseña actual</Label>
+                    <Label htmlFor="profile-current-password">Contraseña actual</Label>
                     <Input
+                      id="profile-current-password"
                       type="password"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -197,8 +216,9 @@ export function Profile() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Nueva contraseña (mín. 8)</Label>
+                    <Label htmlFor="profile-new-password">Nueva contraseña (mín. 8)</Label>
                     <Input
+                      id="profile-new-password"
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
@@ -208,8 +228,16 @@ export function Profile() {
                 </div>
               </div>
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              {success && <p className="text-sm text-success">Perfil actualizado correctamente.</p>}
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              {success && (
+                <p role="status" className="text-sm text-success">
+                  Perfil actualizado correctamente.
+                </p>
+              )}
 
               <Button type="submit" disabled={submitting}>
                 {submitting ? <Loader2 className="animate-spin" /> : <Save />} Guardar cambios
@@ -217,6 +245,7 @@ export function Profile() {
             </form>
           </CardContent>
         </Card>
+        )}
       </div>
     </AppLayout>
   )

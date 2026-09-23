@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import CurrentGym, get_current_gym, require_component
+from app.api.deps import CurrentGym, get_current_gym, require_component_roles
 from app.db.session import get_db
 from app.schemas.risk import RiskMemberRead, RiskSummary
 from app.services.risk_engine import risk_for_gym, risk_summary
@@ -10,7 +10,7 @@ from app.services.risk_engine import risk_for_gym, risk_summary
 router = APIRouter(
     prefix="/risk",
     tags=["risk"],
-    dependencies=[Depends(require_component("inteligencia"))],
+    dependencies=[Depends(require_component_roles("inteligencia", "admin", "coach"))],
 )
 
 

@@ -24,8 +24,10 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/ui/error-state'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageHeader } from '@/components/ui/page-header'
 import { StatChip } from '@/components/ui/stat-chip'
 import { useToast } from '@/components/ui/toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   fetchAssets,
   fetchCatalog,
@@ -73,6 +75,7 @@ export function Layout() {
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
   const [occupancyKey, setOccupancyKey] = useState(0)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [confirmRetire, setConfirmRetire] = useState<string | null>(null)
   const savedTimer = useRef<number | undefined>(undefined)
   const { toast } = useToast()
 
@@ -145,9 +148,13 @@ export function Layout() {
   )
 
   const refreshAssets = useCallback(async () => {
-    const list = await fetchAssets().catch(() => [])
-    setAssets(list)
-  }, [])
+    try {
+      setAssets(await fetchAssets())
+    } catch {
+      // No vaciamos el plano ante un fallo puntual de red.
+      toast({ title: 'No se pudo actualizar el equipamiento', variant: 'error' })
+    }
+  }, [toast])
 
   const counts = useMemo(() => {
     const c = {
@@ -179,44 +186,46 @@ export function Layout() {
   return (
     <AppLayout>
       <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight">Layout</h1>
-            <p className="text-sm text-muted-foreground">
-              Plano del gimnasio, equipos, mantenimiento y ocupación en vivo.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-full border border-border bg-card p-0.5">
-              <button
-                type="button"
-                onClick={() => setView('canvas')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-                  view === 'canvas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent',
-                )}
-              >
-                <Map className="size-4" /> Plano
-              </button>
-              <button
-                type="button"
-                onClick={() => setView('list')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-                  view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent',
-                )}
-              >
-                <List className="size-4" /> Lista
-              </button>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
-              <Settings2 /> Configuración
-            </Button>
-            <Button size="sm" onClick={() => setAddOpen(true)}>
-              <Plus /> Añadir equipo
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Layout"
+          subtitle="Plano del gimnasio, equipos, mantenimiento y ocupación en vivo."
+          icon={Map}
+          className="mb-5"
+          actions={
+            <>
+              <div className="flex rounded-full border border-border bg-card p-0.5">
+                <button
+                  type="button"
+                  aria-pressed={view === 'canvas'}
+                  onClick={() => setView('canvas')}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                    view === 'canvas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent',
+                  )}
+                >
+                  <Map className="size-4" /> Plano
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={view === 'list'}
+                  onClick={() => setView('list')}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                    view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent',
+                  )}
+                >
+                  <List className="size-4" /> Lista
+                </button>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
+                <Settings2 /> Configuración
+              </Button>
+              <Button size="sm" onClick={() => setAddOpen(true)}>
+                <Plus /> Añadir equipo
+              </Button>
+            </>
+          }
+        />
 
         {error && <ErrorState description={error} onRetry={loadAll} className="mb-6" />}
         {loading && <LoadingState label="Cargando layout…" />}
@@ -228,6 +237,7 @@ export function Layout() {
                 <button
                   key={r.id ?? 'main'}
                   type="button"
+                  aria-pressed={(r.id ?? null) === currentRoom.id}
                   onClick={() => {
                     setCurrentRoomId(r.id)
                     setSelectedId(null)
@@ -277,11 +287,7 @@ export function Layout() {
                           size="sm"
                           variant="ghost"
                           className="text-destructive"
-                          onClick={async () => {
-                            await retireAsset(selected.id)
-                            refreshAssets()
-                            toast({ title: 'Equipo retirado', variant: 'success' })
-                          }}
+                          onClick={() => setConfirmRetire(selected.id)}
                         >
                           <Trash2 /> Retirar
                         </Button>
@@ -361,6 +367,31 @@ export function Layout() {
         onChanged={() => {
           refreshAssets()
           setOccupancyKey((k) => k + 1)
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(confirmRetire)}
+        onOpenChange={(open) => !open && setConfirmRetire(null)}
+        title="¿Retirar este equipo?"
+        description="El equipo dejará de mostrarse como operativo en el plano. Esta acción no se puede deshacer."
+        confirmLabel="Retirar equipo"
+        variant="destructive"
+        onConfirm={async () => {
+          const id = confirmRetire
+          setConfirmRetire(null)
+          if (!id) return
+          try {
+            await retireAsset(id)
+            refreshAssets()
+            toast({ title: 'Equipo retirado', variant: 'success' })
+          } catch (err) {
+            toast({
+              title: 'No se pudo retirar el equipo',
+              description: err instanceof Error ? err.message : undefined,
+              variant: 'error',
+            })
+          }
         }}
       />
     </AppLayout>

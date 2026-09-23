@@ -57,7 +57,7 @@ export function CreateGym() {
   return (
     <AuthLayout title="Crear mi gimnasio" subtitle="Bienvenido, configura tu gimnasio y tu acceso">
       {!token ? (
-        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
+        <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>Falta el enlace de invitación.</span>
         </div>
@@ -125,7 +125,7 @@ export function CreateGym() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </div>

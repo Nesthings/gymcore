@@ -369,3 +369,85 @@ def test_support_ticket_visibility(client, db_session, make_gym):
     token2 = _token(client, u2.email)
     r = client.get(f"/api/v1/support-tickets/{t1.id}", headers=_headers(token2))
     assert r.status_code == 403, r.text  # otro staff no puede ver el ticket ajeno
+
+
+# ---------------------------------------------------------------------------
+# Endurecimiento de acceso a datos sensibles (Fase 0)
+# ---------------------------------------------------------------------------
+
+
+def _override(db, user, component, allowed):
+    from app.models import UserComponentPermission
+
+    db.add(UserComponentPermission(user_id=user.id, component=component, allowed=allowed))
+    db.commit()
+
+
+def test_payments_requires_finanzas_role(client, db_session, make_gym):
+    gym, _ = make_gym()
+
+    # Recepción tiene `finanzas` por defecto: puede leer pagos.
+    tok_rec, _ = _staff_token(client, db_session, gym, role="recepcion")
+    assert client.get("/api/v1/payments", headers=_headers(tok_rec)).status_code == 200
+
+    # Coach no tiene el componente `finanzas`: no puede leer pagos.
+    tok_coach, _ = _staff_token(client, db_session, gym, role="coach")
+    assert client.get("/api/v1/payments", headers=_headers(tok_coach)).status_code == 403
+
+
+def test_members_list_redacts_pii_without_socios(client, db_session, make_gym, make_member):
+    gym, _ = make_gym()
+    member = make_member(gym)
+    member.email = "socio@test.dev"
+    member.phone = "5551234567"
+    db_session.commit()
+
+    # Recepción con `socios` desactivado por override: ve el padrón pero sin PII.
+    user = _make_user(db_session, gym, role="recepcion", email="redact@test.dev")
+    _override(db_session, user, "socios", False)
+    token = _token(client, user.email)
+    r = client.get("/api/v1/members", headers=_headers(token))
+    assert r.status_code == 200, r.text
+    row = next(m for m in r.json() if m["id"] == str(member.id))
+    assert row["email"] is None
+    assert row["phone"] is None
+
+    # Un admin (con `socios`) sí ve la PII.
+    tok_admin, _ = _staff_token(client, db_session, gym, role="admin")
+    r2 = client.get("/api/v1/members", headers=_headers(tok_admin))
+    row2 = next(m for m in r2.json() if m["id"] == str(member.id))
+    assert row2["email"] == "socio@test.dev"
+    assert row2["phone"] == "5551234567"
+
+
+def test_risk_requires_admin_or_coach_and_omits_pii(client, db_session, make_gym, make_member):
+    gym, _ = make_gym()
+    make_member(gym, "Socio Riesgo")
+
+    # Recepción con `inteligencia` concedido por override: el rol la bloquea.
+    user = _make_user(db_session, gym, role="recepcion", email="risk-rec@test.dev")
+    _override(db_session, user, "inteligencia", True)
+    token = _token(client, user.email)
+    assert client.get("/api/v1/risk/members", headers=_headers(token)).status_code == 403
+
+    # Coach sí puede, y la respuesta no incluye email/teléfono.
+    tok_coach, _ = _staff_token(client, db_session, gym, role="coach")
+    r = client.get("/api/v1/risk/members", headers=_headers(tok_coach))
+    assert r.status_code == 200, r.text
+    assert r.json()
+    assert "email" not in r.json()[0]
+    assert "phone" not in r.json()[0]
+
+
+def test_audit_is_admin_only(client, db_session, make_gym):
+    gym, _ = make_gym()
+
+    # Recepción con `auditoria` concedido por override: el rol la bloquea.
+    user = _make_user(db_session, gym, role="recepcion", email="audit-rec@test.dev")
+    _override(db_session, user, "auditoria", True)
+    token = _token(client, user.email)
+    assert client.get("/api/v1/audit", headers=_headers(token)).status_code == 403
+
+    tok_admin, _ = _staff_token(client, db_session, gym, role="admin")
+    r = client.get("/api/v1/audit", headers=_headers(tok_admin))
+    assert r.status_code == 200, r.text

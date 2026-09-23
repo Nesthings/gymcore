@@ -18,6 +18,8 @@ export interface NavRoute {
   to: string
   label: string
   component: string
+  /** Roles con acceso además del componente (datos sensibles). */
+  roles?: string[]
   end?: boolean
 }
 
@@ -34,15 +36,16 @@ export interface ModuleMeta {
 export const NAV_ROUTES: NavRoute[] = [
   { to: '/dashboard', label: 'Dashboard', component: 'dashboard', end: true },
   { to: '/socios', label: 'Socios', component: 'socios' },
-  { to: '/membresias', label: 'Membresías', component: 'membresias' },
-  { to: '/pagos', label: 'Pagos', component: 'finanzas' },
-  { to: '/checkin', label: "Check-in's", component: 'checkin' },
+  { to: '/membresias', label: 'Membresías', component: 'membresias', roles: ['admin', 'recepcion'] },
+  { to: '/pagos', label: 'Pagos', component: 'finanzas', roles: ['admin', 'recepcion'] },
+  { to: '/checkin', label: "Check-ins", component: 'checkin' },
   { to: '/crm', label: 'CRM', component: 'crm' },
   { to: '/productos', label: 'Productos', component: 'productos' },
   { to: '/ventas', label: 'Ventas', component: 'ventas' },
-  { to: '/riesgo', label: 'Riesgo', component: 'inteligencia' },
-  { to: '/configuracion', label: 'Configuración', component: 'configuracion' },
-  { to: '/auditoria', label: 'Auditoría', component: 'auditoria' },
+  { to: '/riesgo', label: 'Riesgo', component: 'inteligencia', roles: ['admin', 'coach'] },
+  { to: '/layout', label: 'Layout', component: 'layout' },
+  { to: '/configuracion', label: 'Configuración', component: 'configuracion', roles: ['admin'] },
+  { to: '/auditoria', label: 'Auditoría', component: 'auditoria', roles: ['admin'] },
 ]
 
 // Meta de cada módulo. La paleta se mantiene en la familia volt/lime con
@@ -146,8 +149,21 @@ export function pageBgForPath(pathname: string): string | undefined {
   return route ? MODULE_META[route.component]?.pageBg : undefined
 }
 
-export function firstAllowedRoute(hasComponent: (c: string) => boolean): string {
-  const route = NAV_ROUTES.find((r) => hasComponent(r.component))
+export function canAccessNav(
+  route: NavRoute,
+  hasComponent: (c: string) => boolean,
+  role?: string | null,
+): boolean {
+  if (!hasComponent(route.component)) return false
+  if (route.roles && (!role || !route.roles.includes(role))) return false
+  return true
+}
+
+export function firstAllowedRoute(
+  hasComponent: (c: string) => boolean,
+  role?: string | null,
+): string {
+  const route = NAV_ROUTES.find((r) => canAccessNav(r, hasComponent, role))
   return route?.to ?? '/dashboard'
 }
 

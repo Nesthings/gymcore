@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Plus, Scale } from 'lucide-react'
+import { Scale } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -10,13 +9,8 @@ import {
   YAxis,
 } from 'recharts'
 
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useToast } from '@/components/ui/toast'
-import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 export interface WeightRecord {
@@ -29,21 +23,12 @@ export interface WeightRecord {
 const AXIS_TICK = { fontSize: 11, fill: 'var(--muted-foreground)' }
 
 export function WeightChart({
-  memberId,
   records,
-  onChanged,
   className,
 }: {
-  memberId: string
   records: WeightRecord[]
-  onChanged: () => void
   className?: string
 }) {
-  const [kg, setKg] = useState('')
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const { toast } = useToast()
-
   const data = records
     .slice()
     .sort((a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime())
@@ -55,34 +40,6 @@ export function WeightChart({
       peso: r.weight_kg,
     }))
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const value = Number(kg)
-    if (!value || value < 20 || value > 400) {
-      toast({ title: 'Peso inválido', description: 'Ingresa un peso entre 20 y 400 kg.', variant: 'error' })
-      return
-    }
-    setSaving(true)
-    try {
-      await apiFetch(`/members/${memberId}/weights`, {
-        method: 'POST',
-        body: JSON.stringify({ weight_kg: value, notes: notes.trim() || null }),
-      })
-      setKg('')
-      setNotes('')
-      onChanged()
-      toast({ title: 'Peso registrado', variant: 'success' })
-    } catch (err) {
-      toast({
-        title: 'No se pudo registrar',
-        description: err instanceof Error ? err.message : 'Intenta de nuevo.',
-        variant: 'error',
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <Card className={cn('rounded-2xl', className)}>
       <CardHeader>
@@ -91,15 +48,15 @@ export function WeightChart({
         </CardTitle>
         <CardDescription>
           {records.length === 0
-            ? 'Registra el primer peso para empezar el seguimiento.'
+            ? 'El socio aún no comparte su peso.'
             : `${records.length} registro${records.length === 1 ? '' : 's'} · última medición ${data[data.length - 1]?.label ?? '—'}`}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent>
         {records.length === 0 ? (
           <EmptyState
-            title="Sin mediciones"
-            description="Agrega un peso y aparecerá la tendencia."
+            title="Sin mediciones compartidas"
+            description="El socio puede registrar y compartir su peso desde su portal."
             icon={Scale}
             className="border border-dashed"
           />
@@ -135,36 +92,6 @@ export function WeightChart({
             </ResponsiveContainer>
           </div>
         )}
-
-        <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="weight-kg">Peso (kg)</Label>
-            <Input
-              id="weight-kg"
-              type="number"
-              step="0.1"
-              min={20}
-              max={400}
-              value={kg}
-              onChange={(e) => setKg(e.target.value)}
-              placeholder="p. ej. 78.5"
-              className="w-28"
-              required
-            />
-          </div>
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Label htmlFor="weight-notes">Nota (opcional)</Label>
-            <Input
-              id="weight-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="p. ej. medición en ayunas"
-            />
-          </div>
-          <Button type="submit" size="sm" disabled={saving}>
-            <Plus /> Registrar
-          </Button>
-        </form>
       </CardContent>
     </Card>
   )

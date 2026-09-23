@@ -7,8 +7,6 @@ from pydantic import BaseModel
 class RiskMemberRead(BaseModel):
     id: uuid.UUID
     full_name: str
-    email: str | None = None
-    phone: str | None = None
     membership_name: str | None = None
     last_checkin: datetime | None = None
     days_inactive: int

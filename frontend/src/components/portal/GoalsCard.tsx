@@ -196,9 +196,9 @@ export function GoalsCard({
           </DialogHeader>
           <form onSubmit={submit} className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Tipo de objetivo</Label>
+              <Label htmlFor="goal-type">Tipo de objetivo</Label>
               <Select value={goalType} onValueChange={setGoalType}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="goal-type" className="w-full" aria-label="Tipo de objetivo">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -212,18 +212,19 @@ export function GoalsCard({
             </div>
             {goalType === 'personalizado' && (
               <div className="space-y-1.5">
-                <Label>Nombre del objetivo</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="p. ej. Objetivo de agosto" />
+                <Label htmlFor="goal-name">Nombre del objetivo</Label>
+                <Input id="goal-name" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="p. ej. Objetivo de agosto" />
               </div>
             )}
             <div className="space-y-1.5">
-              <Label>
+              <Label htmlFor="goal-target">
                 Meta{' '}
                 {GOAL_TYPES.find((t) => t.value === goalType)?.unit
                   ? `(${GOAL_TYPES.find((t) => t.value === goalType)?.unit})`
                   : ''}
               </Label>
               <Input
+                id="goal-target"
                 type="number"
                 step="0.1"
                 min={1}

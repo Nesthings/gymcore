@@ -83,6 +83,7 @@ function QrCamera({
           ref={videoRef}
           muted
           playsInline
+          aria-label="Vista de la cámara para escanear el código QR"
           className="aspect-video w-full object-cover"
         />
         {busy && (

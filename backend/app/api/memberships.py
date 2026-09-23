@@ -53,7 +53,7 @@ def _active_row(db: Session, gym_id: str, membership_id: str) -> dict:
 
 @router.get("/membership-plans", response_model=list[MembershipPlanRead])
 def list_plans(
-    ctx: CurrentGym = Depends(get_current_gym),
+    ctx: CurrentGym = Depends(require_component("membresias", "socios")),
     db: Session = Depends(get_db),
     include_inactive: bool = False,
 ) -> list[MembershipPlan]:
@@ -181,7 +181,7 @@ def _record_payment(
 
 @router.get("/memberships", response_model=list[ActiveMembershipRead])
 def list_memberships(
-    ctx: CurrentGym = Depends(get_current_gym),
+    ctx: CurrentGym = Depends(require_component("membresias", "finanzas")),
     db: Session = Depends(get_db),
     status: str | None = Query(default=None, pattern="^(active|expiring|expired|cancelled)$"),
     branch_id: str | None = None,

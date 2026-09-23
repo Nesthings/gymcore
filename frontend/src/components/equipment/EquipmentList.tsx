@@ -5,6 +5,7 @@ import { EquipmentShape } from '@/components/equipment/EquipmentShape'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Pagination, pageCountFor, paginate } from '@/components/ui/pagination'
 import { SearchInput } from '@/components/ui/search-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -42,6 +43,9 @@ export function EquipmentList({
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
   const [status, setStatus] = useState('all')
+  const [sort, setSort] = useState<'name_asc' | 'name_desc' | 'status' | 'next_desc'>('name_asc')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 15
 
   const categories = useMemo(
     () => Array.from(new Set(assets.map((a) => a.category_name ?? 'Otros'))).sort(),
@@ -50,7 +54,7 @@ export function EquipmentList({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return assets.filter((a) => {
+    const list = assets.filter((a) => {
       if (status !== 'all' && a.status !== (status as AssetStatus)) return false
       if (category !== 'all' && (a.category_name ?? 'Otros') !== category) return false
       if (q) {
@@ -62,14 +66,24 @@ export function EquipmentList({
       }
       return true
     })
-  }, [assets, search, category, status])
+    const sorted = [...list]
+    if (sort === 'name_desc') sorted.sort((a, b) => b.display_name.localeCompare(a.display_name, 'es'))
+    else if (sort === 'status') sorted.sort((a, b) => a.status.localeCompare(b.status))
+    else if (sort === 'next_desc')
+      sorted.sort((a, b) => (b.next_due_at ?? '').localeCompare(a.next_due_at ?? ''))
+    else sorted.sort((a, b) => a.display_name.localeCompare(b.display_name, 'es'))
+    return sorted
+  }, [assets, search, category, status, sort])
+
+  const pageCount = pageCountFor(filtered.length, PAGE_SIZE)
+  const paged = paginate(filtered, page, PAGE_SIZE)
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <SearchInput value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar equipo, marca, modelo…" className="sm:max-w-xs" />
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
+        <SearchInput value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} onClear={() => setSearch('')} placeholder="Buscar equipo, marca, modelo…" className="sm:max-w-xs" aria-label="Buscar equipo" />
+        <Select value={category} onValueChange={(v) => { setCategory(v); setPage(1) }}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por categoría"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las categorías</SelectItem>
             {categories.map((c) => (
@@ -77,12 +91,21 @@ export function EquipmentList({
             ))}
           </SelectContent>
         </Select>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
+        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
+          <SelectTrigger className="w-full sm:w-56" aria-label="Filtrar por estado"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STATUS_FILTERS.map((f) => (
               <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={(v) => { setSort(v as typeof sort); setPage(1) }}>
+          <SelectTrigger className="w-full sm:w-48" aria-label="Ordenar"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name_asc">Nombre (A-Z)</SelectItem>
+            <SelectItem value="name_desc">Nombre (Z-A)</SelectItem>
+            <SelectItem value="status">Estado</SelectItem>
+            <SelectItem value="next_desc">Próximo mantenimiento</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -107,7 +130,7 @@ export function EquipmentList({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((a) => {
+              {paged.map((a) => {
                 const meta = ASSET_STATUS_META[a.status]
                 return (
                   <TableRow key={a.id}>
@@ -151,6 +174,7 @@ export function EquipmentList({
           </Table>
         </div>
       )}
+      <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
     </div>
   )
 }

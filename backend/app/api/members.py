@@ -8,15 +8,16 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentGym, get_current_gym, require_component, require_gym_roles
 from app.api.member_portal import GOAL_TYPES_VALID
 from app.core.events import record_audit
+from app.core.permissions import has_component
 from app.db.session import get_db
-from app.models import Member, MemberWeightRecord
+from app.models import Member
 from app.schemas.member import MemberCreate, MemberDetail, MemberRead, MemberUpdate
 from app.services.engagement import engagement
 from app.services.risk_engine import member_risk
@@ -24,7 +25,12 @@ from app.services.risk_engine import member_risk
 router = APIRouter(prefix="/members", tags=["members"])
 
 
-def _to_member_read(db: Session, gym_id: str, m: Member) -> dict:
+def _can_view_pii(db: Session, ctx: CurrentGym) -> bool:
+    """Solo quien tiene el componente `socios` ve datos personales completos."""
+    return has_component(db, ctx.user.sub, ctx.user.role, "socios")
+
+
+def _to_member_read(db: Session, gym_id: str, m: Member, *, redact: bool = False) -> dict:
     membership = (
         db.execute(
             text(
@@ -40,7 +46,7 @@ def _to_member_read(db: Session, gym_id: str, m: Member) -> dict:
         .first()
     )
     risk = member_risk(db, gym_id, str(m.id))
-    return {
+    data = {
         "id": m.id,
         "gym_id": m.gym_id,
         "full_name": m.full_name,
@@ -53,17 +59,25 @@ def _to_member_read(db: Session, gym_id: str, m: Member) -> dict:
         "risk_score": risk["risk_score"] if risk else None,
         "membership": dict(membership) if membership else None,
     }
+    # Minimización de datos: sin componente `socios` (p. ej. solo check-in) no
+    # se exponen datos de contacto del socio.
+    if redact:
+        data["email"] = None
+        data["phone"] = None
+    return data
 
 
 @router.get("", response_model=list[MemberRead])
 def list_members(
-    ctx: CurrentGym = Depends(get_current_gym),
+    ctx: CurrentGym = Depends(require_component("socios", "checkin")),
     db: Session = Depends(get_db),
     search: str | None = Query(default=None, max_length=200),
     status: str | None = Query(default=None, pattern="^(active|inactive|cancelled)$"),
+    sort: str = Query(default="recent", pattern="^(recent|name_asc|name_desc)$"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[dict]:
+    redact = not _can_view_pii(db, ctx)
     stmt = select(Member).where(Member.gym_id == ctx.gym["id"])
     if search:
         like = f"%{search.strip().lower()}%"
@@ -72,9 +86,24 @@ def list_members(
         )
     if status:
         stmt = stmt.where(Member.status == status)
-    stmt = stmt.order_by(Member.joined_at.desc()).limit(limit).offset(offset)
+    else:
+        # Los socios dados de baja (status 'cancelled') no se listan: desaparecen
+        # del padrón, conservando su historial en la base de datos.
+        stmt = stmt.where(Member.status != "cancelled")
+    # Orden: por defecto los más recientes; o por nombre A-Z / Z-A. Se normalizan
+    # los acentos para un orden alfabético correcto en español.
+    name_key = func.lower(
+        func.translate(Member.full_name, "áéíóúüñÁÉÍÓÚÜÑ", "aeiouunAEIOUUN")
+    )
+    if sort == "name_asc":
+        stmt = stmt.order_by(name_key.asc())
+    elif sort == "name_desc":
+        stmt = stmt.order_by(name_key.desc())
+    else:
+        stmt = stmt.order_by(Member.joined_at.desc())
+    stmt = stmt.limit(limit).offset(offset)
     members = list(db.scalars(stmt))
-    return [_to_member_read(db, str(ctx.gym["id"]), m) for m in members]
+    return [_to_member_read(db, str(ctx.gym["id"]), m, redact=redact) for m in members]
 
 
 @router.post("", response_model=MemberRead, status_code=status.HTTP_201_CREATED)
@@ -135,7 +164,7 @@ def _get_member_or_404(db: Session, gym_id: str, member_id: str) -> Member:
 @router.get("/{member_id}", response_model=MemberDetail)
 def get_member(
     member_id: str,
-    ctx: CurrentGym = Depends(get_current_gym),
+    ctx: CurrentGym = Depends(require_component("socios")),
     db: Session = Depends(get_db),
 ) -> dict:
     m = _get_member_or_404(db, ctx.gym["id"], member_id)
@@ -197,6 +226,8 @@ def get_member(
         "risk_level": risk["risk_level"] if risk else None,
         "risk_score": risk["risk_score"] if risk else None,
         "risk_suggested_action": risk["suggested_action"] if risk else None,
+        "risk_days_since_last_visit": risk["days_inactive"] if risk else None,
+        "risk_attendance_trend": risk["attendance_trend"] if risk else None,
         "last_checkin_at": checkins[0]["checked_at"] if checkins else None,
     }
 
@@ -345,7 +376,7 @@ def member_engagement(
     ctx: CurrentGym = Depends(get_current_gym),
     db: Session = Depends(get_db),
 ) -> dict:
-    _get_member_or_404(db, ctx.gym["id"], member_id)
+    member = _get_member_or_404(db, ctx.gym["id"], member_id)
     grace = (
         db.execute(
             text("SELECT streak_grace_days FROM gyms WHERE id = :gid"),
@@ -353,7 +384,11 @@ def member_engagement(
         ).scalar()
         or 0
     )
-    return engagement(db, str(ctx.gym["id"]), member_id, grace_days=grace)
+    result = engagement(db, str(ctx.gym["id"]), member_id, grace_days=grace)
+    # El peso es dato sensible: solo se expone si el socio lo comparte (opt-in).
+    if not member.share_weight:
+        result["weight_records"] = []
+    return result
 
 
 @router.get("/{member_id}/achievements", summary="Logros del socio (staff)")
@@ -377,13 +412,21 @@ def member_goals_staff(
     from app.api.member_portal import _goal_to_read
     from app.models import MemberGoal
 
-    _get_member_or_404(db, ctx.gym["id"], member_id)
+    member = _get_member_or_404(db, ctx.gym["id"], member_id)
     rows = db.scalars(
         select(MemberGoal)
         .where(MemberGoal.member_id == member_id, MemberGoal.active.is_(True))
         .order_by(MemberGoal.created_at.desc())
     )
-    return [_goal_to_read(db, str(ctx.gym["id"]), g) for g in rows]
+    goals = [_goal_to_read(db, str(ctx.gym["id"]), g) for g in rows]
+    # El peso es dato sensible: redacta el progreso de objetivos de peso salvo opt-in.
+    if not member.share_weight:
+        for goal in goals:
+            if goal.get("goal_type") == "peso":
+                goal["current"] = None
+                goal["progress"] = 0.0
+                goal["label"] = "no compartido"
+    return goals
 
 
 @router.post(
@@ -464,43 +507,3 @@ def member_calendar_staff(
             }
         )
     return {"year": y, "month": m, "days": sorted(days.values(), key=lambda d: d["date"])}
-
-
-@router.post("/{member_id}/weights", status_code=status.HTTP_201_CREATED)
-def add_member_weight(
-    member_id: str,
-    body: dict,
-    ctx: CurrentGym = Depends(require_component("socios")),
-    db: Session = Depends(get_db),
-) -> dict:
-    member = _get_member_or_404(db, ctx.gym["id"], member_id)
-    weight_kg = body.get("weight_kg")
-    if weight_kg is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="weight_kg es requerido"
-        )
-    try:
-        weight_kg = float(weight_kg)
-    except (TypeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Peso inválido"
-        ) from None
-    if not (20 <= weight_kg <= 400):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Peso fuera de rango")
-    record = MemberWeightRecord(
-        gym_id=ctx.gym["id"],
-        member_id=member.id,
-        weight_kg=weight_kg,
-        notes=body.get("notes"),
-        recorded_at=datetime.now(UTC),
-        created_by=ctx.user.sub,
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    return {
-        "id": str(record.id),
-        "weight_kg": float(record.weight_kg),
-        "notes": record.notes,
-        "recorded_at": record.recorded_at,
-    }

@@ -58,6 +58,7 @@ interface PortalData {
     photo_url?: string | null
     joined_at: string
     status: string
+    share_weight: boolean
   }
   membership?: {
     plan_name: string
@@ -132,6 +133,7 @@ export function MemberPortal() {
   const [uploading, setUploading] = useState(false)
   const [kg, setKg] = useState('')
   const [saving, setSaving] = useState(false)
+  const [savingPrivacy, setSavingPrivacy] = useState(false)
   const [sugOpen, setSugOpen] = useState(false)
   const [sugText, setSugText] = useState('')
   const [sendingSug, setSendingSug] = useState(false)
@@ -244,6 +246,31 @@ export function MemberPortal() {
       toast({ title: 'No se pudo registrar', description: err instanceof Error ? err.message : 'Intenta de nuevo.', variant: 'error' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const toggleShareWeight = async () => {
+    if (!data) return
+    const next = !data.member.share_weight
+    setSavingPrivacy(true)
+    try {
+      await apiFetch(`/member-share/privacy?token=${encodeURIComponent(token)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ share_weight: next }),
+      })
+      setData((d) => (d ? { ...d, member: { ...d.member, share_weight: next } } : d))
+      toast({
+        title: next ? 'Ahora compartes tu peso' : 'Dejaste de compartir tu peso',
+        variant: 'success',
+      })
+    } catch (err) {
+      toast({
+        title: 'No se pudo actualizar',
+        description: err instanceof Error ? err.message : 'Intenta de nuevo.',
+        variant: 'error',
+      })
+    } finally {
+      setSavingPrivacy(false)
     }
   }
 
@@ -586,6 +613,36 @@ export function MemberPortal() {
               <CheckCircle2 /> Registrar
             </Button>
           </form>
+
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border bg-background/50 p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Compartir mi peso con el gimnasio</p>
+              <p className="text-xs text-muted-foreground">
+                {data.member.share_weight
+                  ? 'Tu entrenador puede ver tu evolución de peso.'
+                  : 'Solo tú puedes ver tu peso.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={data.member.share_weight}
+              aria-label="Compartir mi peso con el gimnasio"
+              disabled={savingPrivacy}
+              onClick={toggleShareWeight}
+              className={cn(
+                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50',
+                data.member.share_weight ? 'bg-primary' : 'bg-muted',
+              )}
+            >
+              <span
+                className={cn(
+                  'inline-block size-5 rounded-full bg-white shadow transition-transform',
+                  data.member.share_weight ? 'translate-x-5' : 'translate-x-0.5',
+                )}
+              />
+            </button>
+          </div>
         </section>
 
         {/* Calendario personal */}
@@ -680,6 +737,7 @@ export function MemberPortal() {
               rows={4}
               maxLength={2000}
               placeholder="Escribe aquí tu comentario o sugerencia…"
+              aria-label="Comentario o sugerencia"
               required
             />
             <div className="flex justify-end gap-2">
@@ -699,7 +757,7 @@ export function MemberPortal() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <QrCode className="size-5 text-primary" /> Tu QR de check-in
+              <QrCode className="size-5 text-primary" /> Mi QR de check-in
             </DialogTitle>
             <DialogDescription>
               Muéstralo en recepción para registrar tu entrada. También puedes actualizar tu foto.

@@ -130,7 +130,7 @@ function App() {
                     <Route
                       path="/membresias"
                       element={
-                        <ProtectedRoute component="membresias">
+                        <ProtectedRoute roles={['admin', 'recepcion']} component="membresias">
                           <Memberships />
                         </ProtectedRoute>
                       }
@@ -138,7 +138,7 @@ function App() {
                     <Route
                       path="/pagos"
                       element={
-                        <ProtectedRoute component="finanzas">
+                        <ProtectedRoute roles={['admin', 'recepcion']} component="finanzas">
                           <Payments />
                         </ProtectedRoute>
                       }
@@ -186,7 +186,7 @@ function App() {
                     <Route
                       path="/riesgo"
                       element={
-                        <ProtectedRoute component="inteligencia">
+                        <ProtectedRoute roles={['admin', 'coach']} component="inteligencia">
                           <Riesgo />
                         </ProtectedRoute>
                       }
@@ -210,7 +210,7 @@ function App() {
                     <Route
                       path="/auditoria"
                       element={
-                        <ProtectedRoute component="auditoria">
+                        <ProtectedRoute roles={['admin']} component="auditoria">
                           <Audit />
                         </ProtectedRoute>
                       }

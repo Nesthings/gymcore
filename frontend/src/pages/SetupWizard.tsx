@@ -64,6 +64,7 @@ interface StaffUser {
   email: string
   role: string
   branch_id?: string | null
+  phone?: string | null
   job_title?: string | null
 }
 
@@ -195,6 +196,7 @@ export function SetupWizard() {
     currency: 'MXN',
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   const [superForm, setSuperForm] = useState({
@@ -203,6 +205,7 @@ export function SetupWizard() {
     phone: '',
   })
   const [superPhoto, setSuperPhoto] = useState<File | null>(null)
+  const [superPhotoPreview, setSuperPhotoPreview] = useState<string | null>(null)
 
   const [newBranches, setNewBranches] = useState<{ name: string; address: string }[]>([])
   const [branchOptions, setBranchOptions] = useState<{ id: string; name: string }[]>([])
@@ -235,7 +238,7 @@ export function SetupWizard() {
         setSuperForm({
           full_name: me.full_name,
           job_title: me.job_title ?? '',
-          phone: '',
+          phone: me.phone ?? '',
         })
       }
     } catch (err) {
@@ -246,6 +249,27 @@ export function SetupWizard() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Vistas previas con limpieza de object URLs.
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(logoFile)
+    setLogoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [logoFile])
+
+  useEffect(() => {
+    if (!superPhoto) {
+      setSuperPhotoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(superPhoto)
+    setSuperPhotoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [superPhoto])
 
   const saveStep = async () => {
     setError(null)
@@ -391,7 +415,7 @@ export function SetupWizard() {
             <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-brand text-primary-foreground shadow-elevated">
               {logoFile || logoUrl ? (
                 <img
-                  src={logoFile ? URL.createObjectURL(logoFile) : logoUrl ?? ''}
+                  src={logoPreview ?? logoUrl ?? ''}
                   alt="Logo del gimnasio"
                   className="size-full object-cover"
                 />
@@ -442,7 +466,10 @@ export function SetupWizard() {
 
             <div className="px-6 py-6">
               {error && (
-                <div className="mb-5 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                <div
+                  role="alert"
+                  className="mb-5 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
+                >
                   <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-[10px] font-bold">
                     !
                   </span>
@@ -460,7 +487,7 @@ export function SetupWizard() {
                       <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary">
                         {logoFile ? (
                           <img
-                            src={URL.createObjectURL(logoFile)}
+                            src={logoPreview ?? ''}
                             alt="Logo nuevo"
                             className="size-full object-cover"
                           />
@@ -480,13 +507,27 @@ export function SetupWizard() {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (!f) return
+                            if (!f.type.startsWith('image/')) {
+                              setError('El logo debe ser una imagen')
+                            } else if (f.size > 5 * 1024 * 1024) {
+                              setError('La imagen supera el límite de 5 MB')
+                            } else {
+                              setLogoFile(f)
+                            }
+                            e.currentTarget.value = ''
+                          }}
                         />
                         <div className="flex gap-2">
-                          <Button type="button" variant="outline" size="sm">
-                            <label htmlFor="setup-logo" className="cursor-pointer">
-                              {logoFile || logoUrl ? 'Cambiar logo' : 'Elegir logo'}
-                            </label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById('setup-logo')?.click()}
+                          >
+                            {logoFile || logoUrl ? 'Cambiar logo' : 'Elegir logo'}
                           </Button>
                           {(logoFile || logoUrl) && (
                             <Button
@@ -518,8 +559,9 @@ export function SetupWizard() {
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Nombre de contacto</Label>
+                        <Label htmlFor="sw-contact-name">Nombre de contacto</Label>
                         <Input
+                          id="sw-contact-name"
                           value={gymForm.contact_name}
                           onChange={(e) =>
                             setGymForm({ ...gymForm, contact_name: e.target.value })
@@ -527,8 +569,9 @@ export function SetupWizard() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Teléfono</Label>
+                        <Label htmlFor="sw-contact-phone">Teléfono</Label>
                         <Input
+                          id="sw-contact-phone"
                           value={gymForm.contact_phone}
                           onChange={(e) =>
                             setGymForm({ ...gymForm, contact_phone: e.target.value })
@@ -539,8 +582,9 @@ export function SetupWizard() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Correo de contacto</Label>
+                      <Label htmlFor="sw-contact-email">Correo de contacto</Label>
                       <Input
+                        id="sw-contact-email"
                         type="email"
                         value={gymForm.contact_email}
                         onChange={(e) =>
@@ -551,8 +595,9 @@ export function SetupWizard() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Dirección</Label>
+                      <Label htmlFor="sw-address">Dirección</Label>
                       <Input
+                        id="sw-address"
                         value={gymForm.address}
                         onChange={(e) => setGymForm({ ...gymForm, address: e.target.value })}
                         placeholder="Calle, número, colonia, ciudad"
@@ -567,7 +612,7 @@ export function SetupWizard() {
                       <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-primary/20 bg-secondary">
                         {superPhoto ? (
                           <img
-                            src={URL.createObjectURL(superPhoto)}
+                            src={superPhotoPreview ?? ''}
                             alt="Foto nueva"
                             className="size-full object-cover"
                           />
@@ -585,12 +630,26 @@ export function SetupWizard() {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => setSuperPhoto(e.target.files?.[0] ?? null)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (!f) return
+                            if (!f.type.startsWith('image/')) {
+                              setError('La foto debe ser una imagen')
+                            } else if (f.size > 5 * 1024 * 1024) {
+                              setError('La imagen supera el límite de 5 MB')
+                            } else {
+                              setSuperPhoto(f)
+                            }
+                            e.currentTarget.value = ''
+                          }}
                         />
-                        <Button type="button" variant="outline" size="sm">
-                          <label htmlFor="setup-photo" className="cursor-pointer">
-                            {superPhoto ? 'Cambiar foto' : 'Elegir foto'}
-                          </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('setup-photo')?.click()}
+                        >
+                          {superPhoto ? 'Cambiar foto' : 'Elegir foto'}
                         </Button>
                       </div>
                     </div>
@@ -606,8 +665,9 @@ export function SetupWizard() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Nombre completo *</Label>
+                      <Label htmlFor="sw-super-name">Nombre completo *</Label>
                       <Input
+                        id="sw-super-name"
                         value={superForm.full_name}
                         onChange={(e) =>
                           setSuperForm({ ...superForm, full_name: e.target.value })
@@ -617,8 +677,9 @@ export function SetupWizard() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Cargo / puesto</Label>
+                      <Label htmlFor="sw-super-job">Cargo / puesto</Label>
                       <select
+                        id="sw-super-job"
                         value={superForm.job_title}
                         onChange={(e) =>
                           setSuperForm({ ...superForm, job_title: e.target.value })
@@ -635,8 +696,9 @@ export function SetupWizard() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Teléfono</Label>
+                      <Label htmlFor="sw-super-phone">Teléfono</Label>
                       <Input
+                        id="sw-super-phone"
                         value={superForm.phone}
                         onChange={(e) => setSuperForm({ ...superForm, phone: e.target.value })}
                         placeholder="ej. 555 1234 5678"
@@ -675,8 +737,9 @@ export function SetupWizard() {
                           className="grid gap-3 rounded-xl border border-border/70 bg-background/50 p-4 sm:grid-cols-[1fr_1fr_auto]"
                         >
                           <div className="space-y-1.5">
-                            <Label>Nombre</Label>
+                            <Label htmlFor={`sw-branch-name-${i}`}>Nombre</Label>
                             <Input
+                              id={`sw-branch-name-${i}`}
                               value={b.name}
                               onChange={(e) =>
                                 setNewBranches((prev) =>
@@ -689,8 +752,9 @@ export function SetupWizard() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Dirección</Label>
+                            <Label htmlFor={`sw-branch-address-${i}`}>Dirección</Label>
                             <Input
+                              id={`sw-branch-address-${i}`}
                               value={b.address}
                               onChange={(e) =>
                                 setNewBranches((prev) =>
@@ -791,8 +855,9 @@ export function SetupWizard() {
                                   </div>
                                   <div className="grid gap-3 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                      <Label>Nombre completo *</Label>
+                                      <Label htmlFor={`sw-team-name-${globalIdx}`}>Nombre completo *</Label>
                                       <Input
+                                        id={`sw-team-name-${globalIdx}`}
                                         value={t.full_name}
                                         onChange={(e) =>
                                           setTeamField(globalIdx, 'full_name', e.target.value)
@@ -801,8 +866,9 @@ export function SetupWizard() {
                                       />
                                     </div>
                                     <div className="space-y-1.5">
-                                      <Label>Correo *</Label>
+                                      <Label htmlFor={`sw-team-email-${globalIdx}`}>Correo *</Label>
                                       <Input
+                                        id={`sw-team-email-${globalIdx}`}
                                         type="email"
                                         value={t.email}
                                         onChange={(e) =>
@@ -823,8 +889,9 @@ export function SetupWizard() {
                                   </div>
                                   <div className="grid gap-3 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                      <Label>Contraseña *</Label>
+                                      <Label htmlFor={`sw-team-password-${globalIdx}`}>Contraseña *</Label>
                                       <Input
+                                        id={`sw-team-password-${globalIdx}`}
                                         type="password"
                                         value={t.password}
                                         onChange={(e) =>
@@ -835,8 +902,9 @@ export function SetupWizard() {
                                       />
                                     </div>
                                     <div className="space-y-1.5">
-                                      <Label>Puesto *</Label>
+                                      <Label htmlFor={`sw-team-job-${globalIdx}`}>Puesto *</Label>
                                       <select
+                                        id={`sw-team-job-${globalIdx}`}
                                         value={t.job_title}
                                         onChange={(e) =>
                                           setTeamField(globalIdx, 'job_title', e.target.value)
@@ -854,8 +922,9 @@ export function SetupWizard() {
                                     </div>
                                   </div>
                                   <div className="space-y-1.5">
-                                    <Label>Rol de acceso *</Label>
+                                    <Label htmlFor={`sw-team-role-${globalIdx}`}>Rol de acceso *</Label>
                                     <select
+                                      id={`sw-team-role-${globalIdx}`}
                                       value={t.role}
                                       onChange={(e) =>
                                         setTeamField(globalIdx, 'role', e.target.value)
@@ -1025,7 +1094,14 @@ export function SetupWizard() {
 
             {/* Pie: progreso + acciones */}
             <div className="flex flex-col gap-4 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:items-center">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progress)}
+                aria-label="Progreso de configuración"
+                className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary"
+              >
                 <div
                   className="h-full rounded-full bg-gradient-brand transition-all duration-500 ease-out"
                   style={{ width: `${progress}%` }}

@@ -1,6 +1,6 @@
-import { cn } from '@/lib/utils'
+import { Children } from 'react'
 
-const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+import { cn, formatCurrency } from '@/lib/utils'
 
 /**
  * PipelineColumn: columna del pipeline de leads (etapa). Muestra el encabezado
@@ -31,11 +31,19 @@ export function PipelineColumn({
         </div>
         {value > 0 && (
           <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-primary">
-            {MXN.format(value)}
+            {formatCurrency(value, 2)}
           </span>
         )}
       </div>
-      <div className="flex min-h-[120px] flex-col gap-2">{children}</div>
+      <div className="flex min-h-[120px] flex-col gap-2">
+        {Children.count(children) === 0 ? (
+          <p className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-xs text-muted-foreground">
+            Sin leads
+          </p>
+        ) : (
+          children
+        )}
+      </div>
     </div>
   )
 }

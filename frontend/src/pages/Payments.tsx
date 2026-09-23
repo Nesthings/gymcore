@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CreditCard, FileDown, Wallet } from 'lucide-react'
 
 import { PaymentFormDialog } from '@/components/payments/PaymentFormDialog'
@@ -8,7 +8,11 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ListToolbar } from '@/components/ui/list-toolbar'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { Pagination, pageCountFor, paginate } from '@/components/ui/pagination'
+import { SearchInput } from '@/components/ui/search-input'
 import {
   Select,
   SelectContent,
@@ -26,10 +30,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/components/ui/toast'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
 import { AppLayout } from '@/components/layout/AppLayout'
-
-const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+import { formatCurrency } from '@/lib/utils'
 
 const PAYMENT_METHODS: Record<string, string> = {
   cash: 'Efectivo',
@@ -69,6 +72,10 @@ export function Payments() {
   const [error, setError] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc'>('date_desc')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
   const { toast } = useToast()
 
   const load = useCallback(async () => {
@@ -96,9 +103,32 @@ export function Payments() {
 
   const total = payments.reduce((sum, p) => sum + (p.amount || 0), 0)
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const list = payments.filter(
+      (p) =>
+        !q ||
+        p.member_name.toLowerCase().includes(q) ||
+        (p.concept ?? '').toLowerCase().includes(q),
+    )
+    const sorted = [...list]
+    if (sort === 'date_asc') sorted.sort((a, b) => a.paid_at.localeCompare(b.paid_at))
+    else if (sort === 'amount_desc') sorted.sort((a, b) => b.amount - a.amount)
+    else if (sort === 'amount_asc') sorted.sort((a, b) => a.amount - b.amount)
+    else sorted.sort((a, b) => b.paid_at.localeCompare(a.paid_at))
+    return sorted
+  }, [payments, search, sort])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, sort, from, to, method])
+
+  const pageCount = pageCountFor(filtered.length, PAGE_SIZE)
+  const paged = paginate(filtered, page, PAGE_SIZE)
+
   const downloadReceipt = async (id: string) => {
     try {
-      const token = localStorage.getItem('gymcore_token')
+      const token = getToken()
       const res = await fetch(`/api/v1/payments/${id}/receipt`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
@@ -119,22 +149,21 @@ export function Payments() {
   return (
     <AppLayout>
     <div className="mx-auto w-full max-w-6xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pagos</h1>
-          <p className="text-sm text-muted-foreground">
-            Cobros de membresías y conceptos adicionales
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setFormOpen(true)}>
-          <CreditCard /> Registrar pago
-        </Button>
-      </div>
+      <PageHeader
+        title="Pagos"
+        subtitle="Cobros de membresías y conceptos adicionales"
+        icon={CreditCard}
+        actions={
+          <Button size="sm" onClick={() => setFormOpen(true)}>
+            <CreditCard /> Registrar pago
+          </Button>
+        }
+      />
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatChip
           label="Total del periodo"
-          value={MXN.format(total)}
+          value={formatCurrency(total, 2)}
           icon={Wallet}
           tint="bg-primary/10 text-primary"
         />
@@ -146,29 +175,51 @@ export function Payments() {
         />
       </div>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <div className="space-y-1.5">
-          <Label>Método</Label>
-          <Select value={method || 'all'} onValueChange={(v) => setMethod(v === 'all' ? '' : v)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="cash">Efectivo</SelectItem>
-              <SelectItem value="card">Tarjeta</SelectItem>
-              <SelectItem value="transfer">Transferencia</SelectItem>
-            </SelectContent>
-          </Select>
+      <ListToolbar className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onClear={() => setSearch('')}
+          placeholder="Buscar socio o concepto…"
+          aria-label="Buscar pago"
+        />
+        <Select value={method || 'all'} onValueChange={(v) => setMethod(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-full" aria-label="Filtrar por método">
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los métodos</SelectItem>
+            <SelectItem value="cash">Efectivo</SelectItem>
+            <SelectItem value="card">Tarjeta</SelectItem>
+            <SelectItem value="transfer">Transferencia</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="pay-from" className="shrink-0 text-xs text-muted-foreground">
+            Desde
+          </Label>
+          <Input id="pay-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
-        <div className="space-y-1.5">
-          <Label>Desde</Label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        <div className="flex items-center gap-2">
+          <Label htmlFor="pay-to" className="shrink-0 text-xs text-muted-foreground">
+            Hasta
+          </Label>
+          <Input id="pay-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
-        <div className="space-y-1.5">
-          <Label>Hasta</Label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-        </div>
+      </ListToolbar>
+
+      <div className="mb-4 flex items-center justify-end">
+        <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+          <SelectTrigger className="w-48" aria-label="Ordenar">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date_desc">Fecha (reciente)</SelectItem>
+            <SelectItem value="date_asc">Fecha (antigua)</SelectItem>
+            <SelectItem value="amount_desc">Monto (mayor)</SelectItem>
+            <SelectItem value="amount_asc">Monto (menor)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {error && <ErrorState description={error} onRetry={refresh} className="mb-6" />}
@@ -187,7 +238,16 @@ export function Payments() {
         />
       )}
 
-      {!loading && !error && payments.length > 0 && (
+      {!loading && !error && payments.length > 0 && filtered.length === 0 && (
+        <EmptyState
+          title="Sin resultados"
+          description="Ajusta la búsqueda o los filtros."
+          icon={CreditCard}
+        />
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <>
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
           <Table>
             <TableHeader>
@@ -202,7 +262,7 @@ export function Payments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((p) => {
+              {paged.map((p) => {
                 const meta = PAYMENT_STATUS[p.status ?? ''] ?? {
                   label: p.status ?? '—',
                   variant: 'soft-secondary' as const,
@@ -225,7 +285,7 @@ export function Payments() {
                       <Badge variant={meta.variant}>{meta.label}</Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {MXN.format(p.amount)}
+                      {formatCurrency(p.amount, 2)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -243,6 +303,8 @@ export function Payments() {
             </TableBody>
           </Table>
         </div>
+        <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
+        </>
       )}
 
       <PaymentFormDialog

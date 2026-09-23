@@ -11,7 +11,7 @@ export const COMPONENT_CATALOG: { slug: string; label: string; description?: str
   { slug: 'membresias', label: 'Membresías', description: 'Planes y membresías' },
   { slug: 'finanzas', label: 'Finanzas', description: 'Pagos, ingresos y morosidad' },
   { slug: 'crm', label: 'CRM', description: 'Leads y embudo de captación' },
-  { slug: 'checkin', label: "Check-in's", description: 'Registro de acceso por QR' },
+  { slug: 'checkin', label: "Check-ins", description: 'Registro de acceso por QR' },
   { slug: 'productos', label: 'Productos', description: 'Catálogo de productos de venta' },
   { slug: 'ventas', label: 'Ventas', description: 'Ventas e ingresos de mostrador' },
   { slug: 'inteligencia', label: 'Inteligencia', description: 'Riesgo de abandono y analítica' },

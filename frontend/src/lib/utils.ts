@@ -5,12 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Moneda en formato MXN (es-MX).
-export function formatCurrency(value: number): string {
+// Moneda en formato MXN (es-MX). `decimals` controla los centavos (0 por
+// defecto para agregados; 2 para importes de transacción).
+export function formatCurrency(value: number, decimals = 0): string {
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(value)
 }
 

@@ -33,7 +33,19 @@ export function ProductFormDialog({
   const [stock, setStock] = useState('')
   const [active, setActive] = useState(true)
   const [threshold, setThreshold] = useState('5')
+  const [loadedThreshold, setLoadedThreshold] = useState(5)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(photoFile)
+    setPhotoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [photoFile])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,7 +59,11 @@ export function ProductFormDialog({
     setPhotoFile(null)
     setError(null)
     apiFetch<{ stock_alert_threshold?: number }>('/gyms/me')
-      .then((c) => setThreshold(String(c.stock_alert_threshold ?? 5)))
+      .then((c) => {
+        const value = c.stock_alert_threshold ?? 5
+        setThreshold(String(value))
+        setLoadedThreshold(value)
+      })
       .catch(() => undefined)
   }, [open, product])
 
@@ -76,10 +92,20 @@ export function ProductFormDialog({
         form.append('file', photoFile)
         await apiFetch(`/products/${id}/photo`, { method: 'POST', body: form })
       }
-      await apiFetch('/gyms/me', {
-        method: 'PATCH',
-        body: JSON.stringify({ stock_alert_threshold: Number(threshold) || 5 }),
-      })
+      // El umbral de stock es un ajuste del gimnasio: solo se actualiza si
+      // cambió, y un fallo aquí no debe impedir cerrar tras guardar el producto.
+      const nextThreshold = Number(threshold) || 5
+      if (nextThreshold !== loadedThreshold) {
+        try {
+          await apiFetch('/gyms/me', {
+            method: 'PATCH',
+            body: JSON.stringify({ stock_alert_threshold: nextThreshold }),
+          })
+          setLoadedThreshold(nextThreshold)
+        } catch {
+          // no crítico
+        }
+      }
       onSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el producto')
@@ -161,8 +187,8 @@ export function ProductFormDialog({
             <Input
               id="p-threshold"
               type="number"
-              min="0"
-              step="0.5"
+              min="1"
+              step="1"
               value={threshold}
               onChange={(e) => setThreshold(e.target.value)}
               placeholder="5"
@@ -184,9 +210,9 @@ export function ProductFormDialog({
 
           <div className="flex items-center gap-3 rounded-md border border-border/60 p-3">
             <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary">
-              {photoFile ? (
+              {photoPreview ? (
                 <img
-                  src={URL.createObjectURL(photoFile)}
+                  src={photoPreview}
                   alt="Foto nueva"
                   className="size-full object-cover"
                 />
@@ -206,12 +232,25 @@ export function ProductFormDialog({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  if (f && !f.type.startsWith('image/')) {
+                    setError('El archivo debe ser una imagen')
+                  } else if (f && f.size > 5 * 1024 * 1024) {
+                    setError('La imagen supera el límite de 5 MB')
+                  } else {
+                    setPhotoFile(f)
+                  }
+                  e.currentTarget.value = ''
+                }}
               />
-              <Button type="button" variant="outline" size="sm">
-                <label htmlFor="p-photo" className="cursor-pointer">
-                  {photoFile || product?.photo_url ? 'Cambiar foto' : 'Subir foto'}
-                </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => document.getElementById('p-photo')?.click()}
+              >
+                {photoFile || product?.photo_url ? 'Cambiar foto' : 'Subir foto'}
               </Button>
               <p className="text-xs text-muted-foreground">
                 La foto es opcional. Se optimiza automáticamente (máx. 5 MB).

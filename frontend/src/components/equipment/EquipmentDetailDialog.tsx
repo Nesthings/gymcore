@@ -316,30 +316,30 @@ export function EquipmentDetailDialog({
             {editMode && (
               <div className="grid gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label>Nombre</Label>
-                  <Input value={editing.custom_name ?? ''} onChange={(e) => setEditing((s) => ({ ...s, custom_name: e.target.value }))} />
+                  <Label htmlFor="ed-name">Nombre</Label>
+                  <Input id="ed-name" value={editing.custom_name ?? ''} onChange={(e) => setEditing((s) => ({ ...s, custom_name: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Número de activo</Label>
-                  <Input value={editing.asset_number ?? ''} onChange={(e) => setEditing((s) => ({ ...s, asset_number: e.target.value }))} />
+                  <Label htmlFor="ed-asset-number">Número de activo</Label>
+                  <Input id="ed-asset-number" value={editing.asset_number ?? ''} onChange={(e) => setEditing((s) => ({ ...s, asset_number: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
-                  <Label>No. de serie</Label>
-                  <Input value={editing.serial_number ?? ''} onChange={(e) => setEditing((s) => ({ ...s, serial_number: e.target.value }))} />
+                  <Label htmlFor="ed-serial">No. de serie</Label>
+                  <Input id="ed-serial" value={editing.serial_number ?? ''} onChange={(e) => setEditing((s) => ({ ...s, serial_number: e.target.value }))} />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <Label>Ancho (m)</Label>
-                    <Input type="number" step="0.1" value={editing.width ?? ''} onChange={(e) => setEditing((s) => ({ ...s, width: e.target.value }))} />
+                    <Label htmlFor="ed-width">Ancho (m)</Label>
+                    <Input id="ed-width" type="number" step="0.1" value={editing.width ?? ''} onChange={(e) => setEditing((s) => ({ ...s, width: e.target.value }))} />
                   </div>
                   <div className="space-y-1">
-                    <Label>Fondo (m)</Label>
-                    <Input type="number" step="0.1" value={editing.depth ?? ''} onChange={(e) => setEditing((s) => ({ ...s, depth: e.target.value }))} />
+                    <Label htmlFor="ed-depth">Fondo (m)</Label>
+                    <Input id="ed-depth" type="number" step="0.1" value={editing.depth ?? ''} onChange={(e) => setEditing((s) => ({ ...s, depth: e.target.value }))} />
                   </div>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <Label>Notas</Label>
-                  <Textarea value={editing.notes ?? ''} onChange={(e) => setEditing((s) => ({ ...s, notes: e.target.value }))} rows={2} />
+                  <Label htmlFor="ed-notes">Notas</Label>
+                  <Textarea id="ed-notes" value={editing.notes ?? ''} onChange={(e) => setEditing((s) => ({ ...s, notes: e.target.value }))} rows={2} />
                 </div>
                 <div className="flex gap-2 sm:col-span-2">
                   <Button size="sm" onClick={saveEdit} disabled={busy}>
@@ -409,16 +409,17 @@ export function EquipmentDetailDialog({
                 {/* Nueva tarea */}
                 <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-3">
                   <div className="flex-1 space-y-1">
-                    <Label>Nueva tarea</Label>
+                    <Label htmlFor="ed-new-task">Nueva tarea</Label>
                     <Input
+                      id="ed-new-task"
                       value={newTask.name}
                       onChange={(e) => setNewTask((s) => ({ ...s, name: e.target.value }))}
                       placeholder="Ej. Lubricación de guías"
                     />
                   </div>
                   <div className="w-28 space-y-1">
-                    <Label>Días</Label>
-                    <Input type="number" min="1" value={newTask.days} onChange={(e) => setNewTask((s) => ({ ...s, days: e.target.value }))} />
+                    <Label htmlFor="ed-new-task-days">Días</Label>
+                    <Input id="ed-new-task-days" type="number" min="1" value={newTask.days} onChange={(e) => setNewTask((s) => ({ ...s, days: e.target.value }))} />
                   </div>
                   <Button size="sm" variant="outline" onClick={addTask} disabled={busy}>
                     <Plus /> Crear
@@ -604,17 +605,17 @@ function CompleteMaintenanceDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Notas</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Opcional" />
+            <Label htmlFor="ed-complete-notes">Notas</Label>
+            <Textarea id="ed-complete-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Opcional" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Costo (MXN)</Label>
-              <Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="Opcional" />
+              <Label htmlFor="ed-complete-cost">Costo (MXN)</Label>
+              <Input id="ed-complete-cost" type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="Opcional" />
             </div>
             <div className="space-y-1">
-              <Label>Piezas reemplazadas</Label>
-              <Input value={parts} onChange={(e) => setParts(e.target.value)} placeholder="Cable, rodamiento…" />
+              <Label htmlFor="ed-complete-parts">Piezas reemplazadas</Label>
+              <Input id="ed-complete-parts" value={parts} onChange={(e) => setParts(e.target.value)} placeholder="Cable, rodamiento…" />
             </div>
           </div>
         </div>
@@ -676,9 +677,9 @@ function ReportIncidentDialog({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Categoría</Label>
+              <Label htmlFor="inc-category">Categoría</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="inc-category" className="w-full" aria-label="Categoría"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {INCIDENT_CATEGORIES.map((c) => (
                     <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
@@ -687,9 +688,9 @@ function ReportIncidentDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Prioridad</Label>
+              <Label htmlFor="inc-priority">Prioridad</Label>
               <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="inc-priority" className="w-full" aria-label="Prioridad"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Baja</SelectItem>
                   <SelectItem value="medium">Media</SelectItem>
@@ -700,12 +701,12 @@ function ReportIncidentDialog({
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Título</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej. Ruido extraño en la cinta" />
+            <Label htmlFor="inc-title">Título</Label>
+            <Input id="inc-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej. Ruido extraño en la cinta" />
           </div>
           <div className="space-y-1">
-            <Label>Descripción</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+            <Label htmlFor="inc-description">Descripción</Label>
+            <Textarea id="inc-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
           <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm">
             <input

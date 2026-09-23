@@ -55,6 +55,7 @@ export function PaymentFormDialog({
   onSaved: () => void
 }) {
   const [members, setMembers] = useState<MemberWithMembership[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
   const [memberId, setMemberId] = useState('')
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('')
@@ -67,11 +68,17 @@ export function PaymentFormDialog({
   useEffect(() => {
     if (!open) return
     let alive = true
+    setMembersLoading(true)
     apiFetch<MemberWithMembership[]>('/memberships?status=active')
       .then((res) => {
         if (alive) setMembers(res)
       })
-      .catch(() => undefined)
+      .catch((err) => {
+        if (alive) setError(err instanceof Error ? err.message : 'No se pudieron cargar los socios')
+      })
+      .finally(() => {
+        if (alive) setMembersLoading(false)
+      })
     setMemberId('')
     setAmount('')
     setMethod('')
@@ -134,9 +141,9 @@ export function PaymentFormDialog({
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
           <div className="space-y-2">
-            <Label>Socio con membresía activa *</Label>
+            <Label htmlFor="pay-member">Socio con membresía activa *</Label>
             <Select value={memberId} onValueChange={setMemberId}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="pay-member" className="w-full" aria-label="Socio">
                 <SelectValue placeholder="Selecciona al socio" />
               </SelectTrigger>
               <SelectContent>
@@ -148,16 +155,21 @@ export function PaymentFormDialog({
                 ))}
               </SelectContent>
             </Select>
-            {members.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No hay socios con membresía activa para cobrar.
-              </p>
+            {membersLoading ? (
+              <p className="text-xs text-muted-foreground">Cargando socios…</p>
+            ) : (
+              members.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No hay socios con membresía activa para cobrar.
+                </p>
+              )
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Monto *</Label>
+              <Label htmlFor="pay-amount">Monto *</Label>
               <Input
+                id="pay-amount"
                 type="number"
                 min={0}
                 step="0.01"
@@ -167,9 +179,9 @@ export function PaymentFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Método *</Label>
+              <Label htmlFor="pay-method">Método *</Label>
               <Select value={method} onValueChange={setMethod}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="pay-method" className="w-full" aria-label="Método de pago">
                   <SelectValue placeholder="Efectivo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -183,18 +195,23 @@ export function PaymentFormDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Concepto</Label>
+            <Label htmlFor="pay-concept">Concepto</Label>
             <Input
+              id="pay-concept"
               value={concept}
               onChange={(e) => setConcept(e.target.value)}
               placeholder="ej. Membresía mensual"
             />
           </div>
           <div className="space-y-2">
-            <Label>Fecha de pago</Label>
-            <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+            <Label htmlFor="pay-date">Fecha de pago</Label>
+            <Input id="pay-date" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar

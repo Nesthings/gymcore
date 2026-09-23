@@ -12,6 +12,7 @@ interface OtpInputProps {
   disabled?: boolean
   className?: string
   ariaLabel?: string
+  id?: string
 }
 
 export function OtpInput({
@@ -22,6 +23,7 @@ export function OtpInput({
   disabled = false,
   className,
   ariaLabel = 'Código de verificación',
+  id,
 }: OtpInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([])
   const digits = value.split('').slice(0, length)
@@ -65,6 +67,7 @@ export function OtpInput({
       {Array.from({ length }).map((_, i) => (
         <input
           key={i}
+          id={i === 0 ? id : undefined}
           ref={(el) => {
             refs.current[i] = el
           }}

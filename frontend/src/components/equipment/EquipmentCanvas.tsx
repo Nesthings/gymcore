@@ -70,9 +70,9 @@ export function EquipmentCanvas({
   }, [worldW, worldH])
 
   useEffect(() => {
+    // Reencuadra al cambiar de sala o de dimensiones (no solo al montar).
     fit()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fit])
 
   const handlePointerDown = (e: React.PointerEvent) => {
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -210,8 +210,17 @@ export function EquipmentCanvas({
             <div
               key={asset.id}
               data-asset-id={asset.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${asset.display_name}, estado ${asset.status}`}
               onPointerDown={(e) => handleNodePointerDown(e, asset)}
               onClick={handleNodeClick}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onOpenDetail?.(asset.id)
+                }
+              }}
               onDoubleClick={(e) => {
                 e.stopPropagation()
                 onOpenDetail?.(asset.id)
@@ -225,7 +234,7 @@ export function EquipmentCanvas({
               }}
               title={`${asset.display_name} · ${asset.status}`}
               className={cn(
-                'absolute cursor-grab touch-none select-none active:cursor-grabbing',
+                'absolute cursor-grab touch-none select-none rounded focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none active:cursor-grabbing',
                 placementId === asset.id && 'ring-2 ring-primary',
               )}
             >

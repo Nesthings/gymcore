@@ -71,9 +71,38 @@ export function UserFormDialog({
   const [components, setComponents] = useState<UserComponents | null>(null)
   const [access, setAccess] = useState<Record<string, AccessValue>>({})
   const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [visibleOnLogin, setVisibleOnLogin] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Vista previa con limpieza del object URL (evita fugas de memoria).
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(photoFile)
+    setPhotoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [photoFile])
+
+  const onPickPhoto = (file: File | undefined) => {
+    if (!file) {
+      setPhotoFile(null)
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      setError('El archivo debe ser una imagen')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen supera el límite de 5 MB')
+      return
+    }
+    setError(null)
+    setPhotoFile(file)
+  }
 
   const loadComponents = useCallback(async () => {
     if (!user) return
@@ -196,13 +225,14 @@ export function UserFormDialog({
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
           <div className="space-y-2">
-            <Label>Nombre completo *</Label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            <Label htmlFor="uf-name">Nombre completo *</Label>
+            <Input id="uf-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
           </div>
           {!user && (
             <div className="space-y-2">
-              <Label>Correo *</Label>
+              <Label htmlFor="uf-email">Correo *</Label>
               <Input
+                id="uf-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -212,8 +242,9 @@ export function UserFormDialog({
           )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Rol *</Label>
+              <Label htmlFor="uf-role">Rol *</Label>
               <select
+                id="uf-role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -226,8 +257,9 @@ export function UserFormDialog({
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Sucursal</Label>
+              <Label htmlFor="uf-branch">Sucursal</Label>
               <select
+                id="uf-branch"
                 value={branchId}
                 onChange={(e) => setBranchId(e.target.value)}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -244,9 +276,9 @@ export function UserFormDialog({
 
           <div className="flex items-center gap-3 rounded-md border border-border/60 p-3">
             <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary">
-              {photoFile ? (
+              {photoPreview ? (
                 <img
-                  src={URL.createObjectURL(photoFile)}
+                  src={photoPreview}
                   alt="Foto nueva"
                   className="size-full object-cover"
                 />
@@ -262,12 +294,15 @@ export function UserFormDialog({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => onPickPhoto(e.target.files?.[0])}
               />
-              <Button type="button" variant="outline" size="sm">
-                <label htmlFor="user-form-photo" className="cursor-pointer">
-                  {photoFile || user?.photo_url ? 'Cambiar foto' : 'Subir foto'}
-                </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => document.getElementById('user-form-photo')?.click()}
+              >
+                {photoFile || user?.photo_url ? 'Cambiar foto' : 'Subir foto'}
               </Button>
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input
@@ -282,16 +317,18 @@ export function UserFormDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Título</Label>
+              <Label htmlFor="uf-title">Título</Label>
               <Input
+                id="uf-title"
                 value={professionalTitle}
                 onChange={(e) => setProfessionalTitle(e.target.value)}
                 placeholder="ej. Lic. en Cultura Física"
               />
             </div>
             <div className="space-y-2">
-              <Label>Certificación</Label>
+              <Label htmlFor="uf-cert">Certificación</Label>
               <Input
+                id="uf-cert"
                 value={cedula}
                 onChange={(e) => setCedula(e.target.value)}
                 placeholder="ej. NSCA-CPT"
@@ -300,16 +337,18 @@ export function UserFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Cargo</Label>
+              <Label htmlFor="uf-job">Cargo</Label>
               <Input
+                id="uf-job"
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
                 placeholder="ej. Coach de fuerza"
               />
             </div>
             <div className="space-y-2">
-              <Label>Especialidad</Label>
+              <Label htmlFor="uf-specialty">Especialidad</Label>
               <Input
+                id="uf-specialty"
                 value={specialty}
                 onChange={(e) => setSpecialty(e.target.value)}
                 placeholder="ej. CrossFit"
@@ -317,8 +356,9 @@ export function UserFormDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>{user ? 'Nueva contraseña (opcional)' : 'Contraseña *'}</Label>
+            <Label htmlFor="uf-password">{user ? 'Nueva contraseña (opcional)' : 'Contraseña *'}</Label>
             <Input
+              id="uf-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

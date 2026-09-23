@@ -73,6 +73,8 @@ class MemberDetail(BaseModel):
     risk_level: str | None = None
     risk_score: int | None = None
     risk_suggested_action: str | None = None
+    risk_days_since_last_visit: int | None = None
+    risk_attendance_trend: str | None = None
     last_checkin_at: datetime | None = None
 
 

@@ -132,13 +132,14 @@ export function MemberFormDialog({
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
           <div className="space-y-2">
-            <Label>Nombre completo *</Label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            <Label htmlFor="mf-name">Nombre completo *</Label>
+            <Input id="mf-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Correo</Label>
+              <Label htmlFor="mf-email">Correo</Label>
               <Input
+                id="mf-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -146,8 +147,9 @@ export function MemberFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Teléfono</Label>
+              <Label htmlFor="mf-phone">Teléfono</Label>
               <Input
+                id="mf-phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="55 1234 5678"
@@ -156,16 +158,18 @@ export function MemberFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Fecha de nacimiento</Label>
+              <Label htmlFor="mf-birth">Fecha de nacimiento</Label>
               <Input
+                id="mf-birth"
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Género</Label>
+              <Label htmlFor="mf-gender">Género</Label>
               <select
+                id="mf-gender"
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
                 className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -181,16 +185,18 @@ export function MemberFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Contacto de emergencia</Label>
+              <Label htmlFor="mf-emergency">Contacto de emergencia</Label>
               <Input
+                id="mf-emergency"
                 value={emergencyContact}
                 onChange={(e) => setEmergencyContact(e.target.value)}
                 placeholder="Nombre de la persona"
               />
             </div>
             <div className="space-y-2">
-              <Label>Teléfono de emergencia</Label>
+              <Label htmlFor="mf-emergency-phone">Teléfono de emergencia</Label>
               <Input
+                id="mf-emergency-phone"
                 value={emergencyPhone}
                 onChange={(e) => setEmergencyPhone(e.target.value)}
                 placeholder="55 1234 5678"
@@ -198,14 +204,19 @@ export function MemberFormDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Notas</Label>
+            <Label htmlFor="mf-notes">Notas</Label>
             <Textarea
+              id="mf-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Restricciones, objetivos, observaciones…"
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar

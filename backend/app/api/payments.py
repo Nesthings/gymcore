@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentGym, get_current_gym, require_component
+from app.api.deps import CurrentGym, get_current_gym, require_component, require_component_roles
 from app.core.events import record_audit
 from app.db.session import get_db
 from app.models import Member, Payment
@@ -37,7 +37,7 @@ def _to_payment_read(db: Session, p: Payment) -> dict:
 
 @router.get("/payments", response_model=list[PaymentRead])
 def list_payments(
-    ctx: CurrentGym = Depends(get_current_gym),
+    ctx: CurrentGym = Depends(require_component_roles("finanzas", "admin", "recepcion")),
     db: Session = Depends(get_db),
     from_: datetime | None = Query(default=None, alias="from"),
     to: datetime | None = Query(default=None),
@@ -114,7 +114,7 @@ def create_payment(
 @router.get("/payments/{payment_id}/receipt", summary="Recibo del pago en PDF")
 def payment_receipt(
     payment_id: str,
-    ctx: CurrentGym = Depends(require_component("finanzas")),
+    ctx: CurrentGym = Depends(require_component_roles("finanzas", "admin", "recepcion")),
     db: Session = Depends(get_db),
 ):
     """Genera un recibo simple en PDF (ReportLab)."""

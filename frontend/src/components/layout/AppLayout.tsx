@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
 import { usePermissions } from '@/lib/permissions'
 import { useNavConfig } from '@/lib/nav-config'
-import { MODULE_META, NAV_ROUTES } from '@/lib/nav'
+import { MODULE_META, NAV_ROUTES, canAccessNav } from '@/lib/nav'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import { ScannerToggle } from '@/components/layout/ScannerToggle'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
@@ -109,7 +109,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const NAV_ITEMS = NAV_ROUTES.filter(
     (i) =>
-      i.component === 'dashboard' || (pinned.includes(i.component) && hasComponent(i.component)),
+      i.component === 'dashboard' ||
+      (pinned.includes(i.component) && canAccessNav(i, hasComponent, user?.role)),
   ).map((i) => ({
     ...i,
     icon: MODULE_META[i.component].icon,
@@ -319,7 +320,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       <UserRound className="size-4" aria-hidden="true" />
                       Ver perfil
                     </NavLink>
-                    {hasComponent('configuracion') && (
+                    {user?.role === 'admin' && hasComponent('configuracion') && (
                       <NavLink
                         to="/configuracion"
                         onClick={() => setProfileOpen(false)}
@@ -354,7 +355,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         Reportar un problema
                       </NavLink>
                     )}
-                    {hasComponent('auditoria') && (
+                    {user?.role === 'admin' && hasComponent('auditoria') && (
                       <NavLink
                         to="/auditoria"
                         onClick={() => setProfileOpen(false)}

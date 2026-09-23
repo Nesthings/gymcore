@@ -123,8 +123,6 @@ def _member_risk(db: Session, gym_id: str, row: dict) -> dict:
     return {
         "id": row["id"],
         "full_name": row["full_name"],
-        "email": row["email"],
-        "phone": row["phone"],
         "status": row["status"],
         "membership_name": membership["plan_name"] if membership else None,
         "last_checkin": last_checkin,
@@ -141,7 +139,7 @@ def risk_for_gym(db: Session, gym_id: str, limit: int = 100) -> list[dict]:
     rows = (
         db.execute(
             text(
-                "SELECT id, full_name, email, phone, status FROM members "
+                "SELECT id, full_name, status FROM members "
                 "WHERE gym_id = :gid AND status != 'cancelled' ORDER BY joined_at DESC LIMIT 500"
             ),
             {"gid": gym_id},
@@ -168,7 +166,7 @@ def member_risk(db: Session, gym_id: str, member_id: str) -> dict | None:
     row = (
         db.execute(
             text(
-                "SELECT id, full_name, email, phone, status FROM members "
+                "SELECT id, full_name, status FROM members "
                 "WHERE id = :mid AND gym_id = :gid"
             ),
             {"mid": member_id, "gid": gym_id},

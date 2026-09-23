@@ -25,55 +25,103 @@ interface NavConfigValue {
   unpin: (component: string) => void
 }
 
+interface StoredNavConfig {
+  pinned: string[]
+  /** Módulos que el usuario quitó explícitamente de la barra. */
+  removed: string[]
+}
+
 const NavConfigContext = createContext<NavConfigValue | null>(null)
 
 function storageKey(userId: string | undefined) {
   return `gymcore_pinned_${userId ?? 'guest'}`
 }
 
-function loadPinned(key: string): string[] {
-  // Fusiona lo guardado por el usuario con los defaults actuales: así los
-  // módulos que se agregan al producto (ej. "ventas") aparecen sin que el
-  // usuario deba borrar su localStorage, respetando su orden/personalización.
-  const saved: string[] = (() => {
-    try {
-      const raw = localStorage.getItem(key)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) return parsed.filter((c) => typeof c === 'string')
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((c) => typeof c === 'string')
+}
+
+function loadConfig(key: string): StoredNavConfig {
+  let saved: StoredNavConfig | null = null
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (isStringArray(parsed)) {
+        // Formato antiguo (solo la lista de fijados).
+        saved = { pinned: parsed, removed: [] }
+      } else if (parsed && isStringArray(parsed.pinned)) {
+        saved = {
+          pinned: parsed.pinned,
+          removed: isStringArray(parsed.removed) ? parsed.removed : [],
+        }
       }
-    } catch {
-      // sin almacenamiento
     }
-    return []
-  })()
-  const merged = [...DEFAULT_PINNED, ...saved.filter((c) => !DEFAULT_PINNED.includes(c))]
-  return merged.length > 0 ? merged : DEFAULT_PINNED
+  } catch {
+    // sin almacenamiento
+  }
+
+  if (!saved) return { pinned: [...DEFAULT_PINNED], removed: [] }
+
+  // Respeta la personalización del usuario y solo agrega módulos nuevos del
+  // producto que el usuario no haya quitado explícitamente. Así, quitar u
+  // ordenar módulos SÍ persiste entre sesiones.
+  const pinned = [...saved.pinned]
+  for (const c of DEFAULT_PINNED) {
+    if (!pinned.includes(c) && !saved.removed.includes(c)) pinned.push(c)
+  }
+  return { pinned, removed: saved.removed }
 }
 
 export function NavConfigProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const key = storageKey(user?.sub)
 
-  const [pinned, setPinned] = useState<string[]>(() => loadPinned(key))
+  // Guardamos la config junto con la clave a la que pertenece: así nunca
+  // escribimos la personalización de un usuario sobre la de otro al cambiar
+  // de sesión.
+  const [state, setState] = useState<{ key: string; config: StoredNavConfig }>(() => ({
+    key,
+    config: loadConfig(key),
+  }))
 
   useEffect(() => {
-    setPinned(loadPinned(key))
+    setState({ key, config: loadConfig(key) })
   }, [key])
 
   useEffect(() => {
+    if (state.key !== key) return
     try {
-      localStorage.setItem(key, JSON.stringify(pinned))
+      localStorage.setItem(key, JSON.stringify(state.config))
     } catch {
       // sin almacenamiento
     }
-  }, [key, pinned])
+  }, [key, state])
 
   const value: NavConfigValue = {
-    pinned,
+    pinned: state.config.pinned,
     pin: (component) =>
-      setPinned((list) => (list.includes(component) ? list : [...list, component])),
-    unpin: (component) => setPinned((list) => list.filter((x) => x !== component)),
+      setState((s) =>
+        s.config.pinned.includes(component)
+          ? s
+          : {
+              ...s,
+              config: {
+                pinned: [...s.config.pinned, component],
+                removed: s.config.removed.filter((x) => x !== component),
+              },
+            },
+      ),
+    unpin: (component) =>
+      setState((s) => ({
+        ...s,
+        config: {
+          pinned: s.config.pinned.filter((x) => x !== component),
+          removed: s.config.removed.includes(component)
+            ? s.config.removed
+            : [...s.config.removed, component],
+        },
+      })),
   }
 
   return <NavConfigContext.Provider value={value}>{children}</NavConfigContext.Provider>

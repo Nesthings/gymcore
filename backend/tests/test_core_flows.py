@@ -202,6 +202,72 @@ def test_weight_record_create_and_list(db_session, make_gym, make_member):
     assert eng["weight_records"][0]["weight_kg"] == 80.5
 
 
+def test_staff_weight_hidden_unless_shared(db_session, make_gym, make_member):
+    from types import SimpleNamespace
+
+    from app.api.member_share import member_share_privacy
+    from app.api.members import member_engagement
+    from app.models import MemberWeightRecord
+
+    gym, _ = make_gym()
+    member = make_member(gym)
+    db_session.add(MemberWeightRecord(gym_id=gym.id, member_id=member.id, weight_kg=80.5))
+    member.share_token = "tok-priv"
+    db_session.commit()
+
+    ctx = SimpleNamespace(gym={"id": str(gym.id)}, user=SimpleNamespace(sub="staff-1"))
+
+    # Por defecto el socio NO comparte: el staff no ve su peso.
+    assert member.share_weight is False
+    assert member_engagement(str(member.id), ctx, db_session)["weight_records"] == []
+
+    # El socio activa el opt-in desde su portal.
+    assert member_share_privacy({"share_weight": True}, "tok-priv", db_session) == {
+        "share_weight": True
+    }
+
+    records = member_engagement(str(member.id), ctx, db_session)["weight_records"]
+    assert len(records) == 1
+    assert records[0]["weight_kg"] == 80.5
+
+
+def test_staff_weight_goal_redacted_unless_shared(db_session, make_gym, make_member):
+    from datetime import UTC, datetime, timedelta
+    from types import SimpleNamespace
+
+    from app.api.members import member_goals_staff
+    from app.models import MemberGoal, MemberWeightRecord
+
+    gym, _ = make_gym()
+    member = make_member(gym)
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            MemberWeightRecord(
+                gym_id=gym.id,
+                member_id=member.id,
+                weight_kg=90.0,
+                recorded_at=now - timedelta(days=30),
+            ),
+            MemberWeightRecord(gym_id=gym.id, member_id=member.id, weight_kg=82.0, recorded_at=now),
+            MemberGoal(
+                gym_id=gym.id,
+                member_id=member.id,
+                goal_type="peso",
+                target_value=78.0,
+                start_date=now.date(),
+                active=True,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    ctx = SimpleNamespace(gym={"id": str(gym.id)}, user=SimpleNamespace(sub="staff-1"))
+    goals = member_goals_staff(str(member.id), ctx, db_session)
+    assert goals[0]["current"] is None
+    assert goals[0]["label"] == "no compartido"
+
+
 def test_suggestion_flow(db_session, make_gym, make_member):
     from datetime import UTC, datetime, timedelta
 

@@ -20,9 +20,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageHeader } from '@/components/ui/page-header'
 import { StatChip } from '@/components/ui/stat-chip'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { apiFetch } from '@/lib/api'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDateTime } from '@/lib/utils'
 
 interface SalesStats {
   periodo_dias: number
@@ -34,6 +43,22 @@ interface SalesStats {
   serie_diaria: { fecha: string; ventas: number; ingresos: number }[]
   top_productos: { name: string; unidades: number; ingresos: number }[]
   por_metodo: { metodo: string; ventas: number; ingresos: number }[]
+}
+
+interface SaleItem {
+  id: string
+  name: string
+  quantity: number
+  line_total: number
+}
+
+interface Sale {
+  id: string
+  total: number
+  status: string
+  payment_method?: string | null
+  created_at: string
+  items: SaleItem[]
 }
 
 const AXIS_TICK = { fontSize: 11, fill: 'var(--muted-foreground)' }
@@ -55,6 +80,7 @@ const CHART_COLORS = [
 
 export function Ventas() {
   const [stats, setStats] = useState<SalesStats | null>(null)
+  const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saleOpen, setSaleOpen] = useState(false)
@@ -64,8 +90,12 @@ export function Ventas() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch<SalesStats>('/sales/stats?days=30')
-      setStats(res)
+      const [statsRes, salesRes] = await Promise.all([
+        apiFetch<SalesStats>('/sales/stats?days=30'),
+        apiFetch<Sale[]>('/sales?limit=50'),
+      ])
+      setStats(statsRes)
+      setSales(salesRes)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar las ventas')
     } finally {
@@ -100,17 +130,17 @@ export function Ventas() {
 
   return (
     <AppLayout>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Ventas</h1>
-          <p className="text-sm text-muted-foreground">
-            Ventas de mostrador: ingresos, gráficas e historial.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setSaleOpen(true)}>
-          <Plus /> Nueva venta
-        </Button>
-      </div>
+      <div className="mx-auto w-full max-w-6xl">
+      <PageHeader
+        title="Ventas"
+        subtitle="Ventas de mostrador: ingresos, gráficas e historial."
+        icon={ShoppingCart}
+        actions={
+          <Button size="sm" onClick={() => setSaleOpen(true)}>
+            <Plus /> Nueva venta
+          </Button>
+        }
+      />
 
       {error && <ErrorState description={error} onRetry={load} className="mb-6" />}
       {loading && <LoadingState label="Cargando ventas…" />}
@@ -264,6 +294,57 @@ export function Ventas() {
               )}
             </CardContent>
           </Card>
+
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-base">Historial de ventas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sales.length === 0 ? (
+                <EmptyState
+                  title="Sin ventas registradas"
+                  description="Las ventas de mostrador aparecerán aquí."
+                  icon={ShoppingCart}
+                  className="py-8"
+                />
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Artículos</TableHead>
+                        <TableHead>Método</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sales.map((s) => (
+                        <TableRow key={s.id}>
+                          <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                            {formatDateTime(s.created_at)}
+                          </TableCell>
+                          <TableCell className="max-w-[22rem] truncate text-sm">
+                            {s.items.length === 0
+                              ? '—'
+                              : s.items.map((i) => `${i.quantity}× ${i.name}`).join(', ')}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {s.payment_method
+                              ? (METHOD_LABELS[s.payment_method] ?? s.payment_method)
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCurrency(s.total)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -272,6 +353,7 @@ export function Ventas() {
         onOpenChange={setSaleOpen}
         onSaved={() => setRefreshKey((k) => k + 1)}
       />
+      </div>
     </AppLayout>
   )
 }

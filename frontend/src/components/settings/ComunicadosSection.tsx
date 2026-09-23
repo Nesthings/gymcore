@@ -69,13 +69,30 @@ export function ComunicadosSection() {
   }
 
   const toggle = async (p: Post) => {
-    await apiFetch(`/posts/${p.id}`, { method: 'PATCH', body: JSON.stringify({ active: !p.active }) })
-    await load()
+    try {
+      await apiFetch(`/posts/${p.id}`, { method: 'PATCH', body: JSON.stringify({ active: !p.active }) })
+      await load()
+    } catch (err) {
+      toast({
+        title: 'No se pudo actualizar el comunicado',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      })
+    }
   }
 
   const remove = async (p: Post) => {
-    await apiFetch(`/posts/${p.id}`, { method: 'DELETE' })
-    await load()
+    try {
+      await apiFetch(`/posts/${p.id}`, { method: 'DELETE' })
+      await load()
+      toast({ title: 'Comunicado eliminado', variant: 'success' })
+    } catch (err) {
+      toast({
+        title: 'No se pudo eliminar el comunicado',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      })
+    }
   }
 
   return (
@@ -104,7 +121,7 @@ export function ComunicadosSection() {
 
       <div className="space-y-2">
         {posts.map((p) => (
-          <div key={p.id} className="rounded-xl border border-border bg-card p-4">
+          <div key={p.id} className="rounded-2xl border border-border bg-card p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -128,7 +145,13 @@ export function ComunicadosSection() {
                 <Button size="sm" variant="ghost" onClick={() => toggle(p)}>
                   {p.active ? 'Ocultar' : 'Mostrar'}
                 </Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove(p)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  aria-label={`Eliminar comunicado ${p.title}`}
+                  onClick={() => remove(p)}
+                >
                   <Trash2 className="size-4" aria-hidden="true" />
                 </Button>
               </div>
@@ -145,12 +168,12 @@ export function ComunicadosSection() {
           </DialogHeader>
           <form onSubmit={create} className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Título *</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="p. ej. Nueva máquina disponible" required />
+              <Label htmlFor="post-title">Título *</Label>
+              <Input id="post-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="p. ej. Nueva máquina disponible" required />
             </div>
             <div className="space-y-1.5">
-              <Label>Mensaje *</Label>
-              <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Detalles del aviso…" required />
+              <Label htmlFor="post-message">Mensaje *</Label>
+              <Textarea id="post-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Detalles del aviso…" required />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>

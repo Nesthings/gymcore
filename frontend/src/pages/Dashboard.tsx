@@ -30,11 +30,12 @@ import { Separator } from '@/components/ui/separator'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { usePermissions } from '@/lib/permissions'
+import { useGymMeta } from '@/lib/gym-meta'
 import { useNavConfig } from '@/lib/nav-config'
 import { useDashboardConfig } from '@/lib/dashboard-config'
 import { useModuleDnD } from '@/lib/module-dnd'
 import { DASHBOARD_CATALOG, getDashboard } from '@/lib/dashboards'
-import { MODULE_META, NAV_ROUTES } from '@/lib/nav'
+import { MODULE_META, NAV_ROUTES, canAccessNav } from '@/lib/nav'
 import { cn, formatCurrency } from '@/lib/utils'
 
 const SECTION_IDS = ['resumen', 'modulos', 'dashboards'] as const
@@ -68,15 +69,6 @@ interface GymSummary {
   ingresos_mes: number
   morosidad: number
   socios_en_riesgo: number
-}
-
-const EMPTY_SUMMARY: GymSummary = {
-  socios_activos: 0,
-  checkins_hoy: 0,
-  nuevas_membresias: 0,
-  ingresos_mes: 0,
-  morosidad: 0,
-  socios_en_riesgo: 0,
 }
 
 function KpiCard({
@@ -177,6 +169,7 @@ export function Dashboard() {
   const { user } = useAuth()
   const [summary, setSummary] = useState<GymSummary | null>(null)
   const { hasComponent } = usePermissions()
+  const { branchId } = useGymMeta()
   const { pinned } = useNavConfig()
   const { active, add, remove } = useDashboardConfig()
   const {
@@ -189,21 +182,12 @@ export function Dashboard() {
   const [trayBtnDragOver, setTrayBtnDragOver] = useState(false)
   const [dashData, setDashData] = useState<Record<string, unknown>>({})
   const [dashError, setDashError] = useState<string | null>(null)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
   const [period, setPeriod] = useState<Period>('week')
   const [memberFormOpen, setMemberFormOpen] = useState(false)
   const [saleOpen, setSaleOpen] = useState(false)
 
-  const periodHint =
-    period === 'day' ? 'hoy' : period === 'week' ? 'últimos 7 días' : 'últimos 30 días'
-
   const userKey = user?.sub ?? 'anon'
-  const branchId = (() => {
-    try {
-      return localStorage.getItem(`gymcore_branch_${userKey}`) ?? ''
-    } catch {
-      return ''
-    }
-  })()
 
   const [order, setOrder] = useState<SectionId[]>(() => {
     try {
@@ -269,13 +253,15 @@ export function Dashboard() {
   const loadSummary = useCallback(async () => {
     if (!user?.gym_id) return
     try {
-      const res = await apiFetch<GymSummary>(`/dashboard/summary?period=${period}`)
+      const res = await apiFetch<GymSummary>('/dashboard/summary')
       setSummary(res)
-    } catch {
-      // Resumen aún no disponible: los chips quedan en "—".
-      setSummary(EMPTY_SUMMARY)
+      setSummaryError(null)
+    } catch (err) {
+      // Sin resumen no mostramos ceros engañosos: avisamos y permitimos reintentar.
+      setSummary(null)
+      setSummaryError(err instanceof Error ? err.message : 'No se pudo cargar el resumen')
     }
-  }, [user?.gym_id, period])
+  }, [user?.gym_id])
 
   useEffect(() => {
     loadSummary()
@@ -305,7 +291,9 @@ export function Dashboard() {
 
   const moduleItems = NAV_ROUTES.filter(
     (r) =>
-      r.component !== 'dashboard' && !pinned.includes(r.component) && hasComponent(r.component),
+      r.component !== 'dashboard' &&
+      !pinned.includes(r.component) &&
+      canAccessNav(r, hasComponent, user?.role),
   ).sort((a, b) => {
     const ai = MODULE_CARD_ORDER.indexOf(a.component)
     const bi = MODULE_CARD_ORDER.indexOf(b.component)
@@ -333,7 +321,7 @@ export function Dashboard() {
       ? [
           { label: 'Socios activos', value: summary.socios_activos, icon: Users, hint: 'con membresía vigente' },
           { label: 'Check-ins hoy', value: summary.checkins_hoy, icon: ScanLine, hint: 'asistencias del día' },
-          { label: 'Nuevas membresías', value: summary.nuevas_membresias, icon: BadgeCheck, hint: periodHint },
+          { label: 'Nuevas membresías', value: summary.nuevas_membresias, icon: BadgeCheck, hint: 'este mes' },
           { label: 'Ingresos del mes', value: formatCurrency(summary.ingresos_mes), icon: Wallet, hint: 'MXN' },
           { label: 'Morosidad', value: summary.morosidad, icon: TrendingDown, hint: 'adeudos pendientes' },
           { label: 'Socios en riesgo', value: summary.socios_en_riesgo, icon: Sparkles, hint: 'posible abandono' },
@@ -364,15 +352,31 @@ export function Dashboard() {
       </div>
 
       <div className="mb-6 flex flex-col gap-2 sm:flex-row">
-        <Button variant="default" size="xl" className="w-full sm:w-auto" onClick={() => setMemberFormOpen(true)}>
-          <UserPlus className="size-5" aria-hidden="true" />
-          Nuevo socio
-        </Button>
-        <Button variant="soft" size="xl" className="w-full sm:w-auto" onClick={() => setSaleOpen(true)}>
-          <ShoppingCart className="size-5" aria-hidden="true" />
-          Nueva venta
-        </Button>
+        {hasComponent('socios') && (
+          <Button variant="default" size="xl" className="w-full sm:w-auto" onClick={() => setMemberFormOpen(true)}>
+            <UserPlus className="size-5" aria-hidden="true" />
+            Nuevo socio
+          </Button>
+        )}
+        {hasComponent('ventas') && (
+          <Button variant="soft" size="xl" className="w-full sm:w-auto" onClick={() => setSaleOpen(true)}>
+            <ShoppingCart className="size-5" aria-hidden="true" />
+            Nueva venta
+          </Button>
+        )}
       </div>
+
+      {summaryError && (
+        <div
+          role="alert"
+          className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
+          <span>No se pudo cargar el resumen del gimnasio.</span>
+          <button type="button" className="font-medium underline" onClick={loadSummary}>
+            Reintentar
+          </button>
+        </div>
+      )}
 
       <p className="mb-5 text-xs text-muted-foreground">
         Arrastra las secciones o usa las flechas para ordenarlas a tu gusto
@@ -612,7 +616,7 @@ export function Dashboard() {
       <Separator className="mt-8" />
       <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Dumbbell className="size-3.5" aria-hidden="true" />
-        Los datos del dashboard se actualizan según la sucursal seleccionada arriba.
+        Los gráficos siguen la sucursal seleccionada arriba; los KPIs son del gimnasio completo.
       </p>
 
       <MemberFormDialog

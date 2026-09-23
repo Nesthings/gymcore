@@ -90,17 +90,28 @@ export function NewSaleDialog({
     const prod = products.find((p) => p.id === productId)
     if (!prod || prod.price == null) return
     const price = prod.price
-    setLines((list) => [
-      ...list,
-      {
-        key: crypto.randomUUID(),
-        product_id: prod.id,
-        name: prod.name,
-        price,
-        stock: prod.stock_quantity,
-        quantity: 1,
-      },
-    ])
+    setLines((list) => {
+      // Si el producto ya está en la venta, incrementa (sin exceder el stock).
+      const existing = list.find((x) => x.product_id === prod.id)
+      if (existing) {
+        return list.map((x) =>
+          x.product_id === prod.id
+            ? { ...x, quantity: Math.min(x.stock, x.quantity + 1) }
+            : x,
+        )
+      }
+      return [
+        ...list,
+        {
+          key: crypto.randomUUID(),
+          product_id: prod.id,
+          name: prod.name,
+          price,
+          stock: prod.stock_quantity,
+          quantity: 1,
+        },
+      ]
+    })
   }
 
   const updateQty = (key: string, value: number) => {
@@ -172,10 +183,11 @@ export function NewSaleDialog({
             </DialogHeader>
 
             <form onSubmit={submit} className="grid gap-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Sucursal</Label>
+                  <Label htmlFor="sale-branch">Sucursal</Label>
                   <select
+                    id="sale-branch"
                     value={branchId}
                     onChange={(e) => setBranchId(e.target.value)}
                     className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
@@ -188,8 +200,9 @@ export function NewSaleDialog({
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Método de pago</Label>
+                  <Label htmlFor="sale-method">Método de pago</Label>
                   <select
+                    id="sale-method"
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
@@ -204,8 +217,9 @@ export function NewSaleDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Productos</Label>
+                <Label htmlFor="sale-products">Productos</Label>
                 <select
+                  id="sale-products"
                   defaultValue=""
                   onChange={(e) => {
                     addProduct(e.target.value)
@@ -249,6 +263,7 @@ export function NewSaleDialog({
                         max={productStock(l.product_id)}
                         value={l.quantity}
                         onChange={(e) => updateQty(l.key, Number(e.target.value))}
+                        aria-label={`Cantidad de ${l.name}`}
                         className="w-20"
                       />
                       <span className="w-24 text-right text-sm font-semibold">
@@ -258,7 +273,7 @@ export function NewSaleDialog({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        aria-label="Quitar"
+                        aria-label={`Quitar ${l.name}`}
                         onClick={() => setLines((list) => list.filter((x) => x.key !== l.key))}
                       >
                         <Trash2 />

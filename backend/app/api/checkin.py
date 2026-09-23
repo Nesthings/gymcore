@@ -239,7 +239,7 @@ def checkout(
 
 @router.get("/checkins/today", response_model=list[TodayCheckinRead])
 def today_checkins(
-    ctx: CurrentGym = Depends(get_current_gym),
+    ctx: CurrentGym = Depends(require_component("checkin", "layout")),
     db: Session = Depends(get_db),
     branch_id: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
@@ -266,7 +266,7 @@ def today_checkins(
 @router.get("/members/{member_id}/checkins", summary="Historial de check-ins de un socio")
 def member_checkins(
     member_id: str,
-    ctx: CurrentGym = Depends(get_current_gym),
+    ctx: CurrentGym = Depends(require_component("checkin", "socios")),
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[dict]:

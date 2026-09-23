@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Plus, Target, TrendingUp, Users } from 'lucide-react'
 
 import { LeadCard } from '@/components/crm/LeadCard'
@@ -8,11 +8,15 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { ListToolbar } from '@/components/ui/list-toolbar'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { SearchInput } from '@/components/ui/search-input'
 import { StatChip } from '@/components/ui/stat-chip'
 import { useToast } from '@/components/ui/toast'
 import { apiFetch } from '@/lib/api'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { formatCurrency } from '@/lib/utils'
 
 interface PipelineStat {
   status: string
@@ -36,6 +40,7 @@ export function Crm() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null)
+  const [search, setSearch] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
   const { toast } = useToast()
 
@@ -69,8 +74,21 @@ export function Crm() {
   const won = stats.find((s) => s.status === 'ganado')?.count ?? leads.filter((l) => l.status === 'ganado').length
   const conversion = totalLeads > 0 ? Math.round((won / totalLeads) * 100) : 0
 
+  const visibleLeads = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return leads
+    return leads.filter(
+      (l) =>
+        l.full_name.toLowerCase().includes(q) ||
+        (l.email ?? '').toLowerCase().includes(q) ||
+        (l.phone ?? '').toLowerCase().includes(q),
+    )
+  }, [leads, search])
+
   const moveLead = async (lead: Lead, direction: 'back' | 'forward') => {
     const index = PIPELINE_STAGES.indexOf(lead.status)
+    // Estado desconocido: no mover a una etapa arbitraria.
+    if (index < 0) return
     const nextIndex = index + (direction === 'forward' ? 1 : -1)
     if (nextIndex < 0 || nextIndex >= PIPELINE_STAGES.length) return
     const nextStatus = PIPELINE_STAGES[nextIndex]
@@ -86,7 +104,11 @@ export function Crm() {
       })
       refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo mover el lead')
+      toast({
+        title: 'No se pudo mover el lead',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      })
     }
   }
 
@@ -98,36 +120,39 @@ export function Crm() {
       setConfirmDelete(null)
       refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo eliminar el lead')
+      toast({
+        title: 'No se pudo eliminar el lead',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      })
     }
   }
 
   return (
     <AppLayout>
-    <div className="mx-auto w-full max-w-[1400px]">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">CRM · Pipeline de leads</h1>
-          <p className="text-sm text-muted-foreground">
-            Prospectos y oportunidades de venta en cada etapa del embudo
-          </p>
-        </div>
-        <Button
-          size="sm"
-          onClick={() => {
-            setEditing(null)
-            setFormOpen(true)
-          }}
-        >
-          <Plus /> Nuevo lead
-        </Button>
-      </div>
+    <div className="mx-auto w-full max-w-7xl">
+      <PageHeader
+        title="CRM · Pipeline de leads"
+        subtitle="Prospectos y oportunidades de venta en cada etapa del embudo"
+        icon={Target}
+        actions={
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditing(null)
+              setFormOpen(true)
+            }}
+          >
+            <Plus /> Nuevo lead
+          </Button>
+        }
+      />
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatChip label="Total de leads" value={totalLeads} icon={Users} tint="bg-info/10 text-info" />
         <StatChip
           label="Valor del pipeline"
-          value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pipelineValue)}
+          value={formatCurrency(pipelineValue, 2)}
           icon={Target}
           tint="bg-primary/10 text-primary"
         />
@@ -162,9 +187,20 @@ export function Crm() {
       )}
 
       {!loading && !error && leads.length > 0 && (
+        <>
+        <ListToolbar>
+          <SearchInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onClear={() => setSearch('')}
+            placeholder="Buscar lead por nombre, correo o teléfono…"
+            className="w-full sm:w-72"
+            aria-label="Buscar lead"
+          />
+        </ListToolbar>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {PIPELINE_STAGES.map((stage) => {
-            const stageLeads = leads.filter((l) => l.status === stage)
+            const stageLeads = visibleLeads.filter((l) => l.status === stage)
             const stat = stats.find((s) => s.status === stage)
             const value = stat?.value ?? stageLeads.reduce((sum, l) => sum + (l.value ?? 0), 0)
             const stageIndex = PIPELINE_STAGES.indexOf(stage)
@@ -172,7 +208,7 @@ export function Crm() {
               <PipelineColumn
                 key={stage}
                 title={STAGE_LABELS[stage] ?? stage}
-                count={stat?.count ?? stageLeads.length}
+                count={stageLeads.length}
                 value={value}
                 dotClass={STAGE_DOTS[stage] ?? 'bg-muted-foreground'}
               >
@@ -194,6 +230,7 @@ export function Crm() {
             )
           })}
         </div>
+        </>
       )}
 
       <LeadFormDialog

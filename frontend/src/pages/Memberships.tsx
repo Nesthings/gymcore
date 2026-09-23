@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  BadgeCheck,
   CalendarDays,
   Check,
   CreditCard,
@@ -40,11 +41,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/components/ui/toast'
+import { ListToolbar } from '@/components/ui/list-toolbar'
+import { PageHeader } from '@/components/ui/page-header'
+import { SearchInput } from '@/components/ui/search-input'
 import { apiFetch } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import { AppLayout } from '@/components/layout/AppLayout'
-
-const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
 interface MembershipPlan {
   id: string
@@ -90,10 +92,14 @@ const MEMBERSHIP_STATUS: Record<
   cancelled: { label: 'Cancelada', variant: 'soft-secondary' },
 }
 
-const STATUS_OPTIONS: { value: 'all' | 'active' | 'expiring' | 'cancelled'; label: string }[] = [
+const STATUS_OPTIONS: {
+  value: 'all' | 'active' | 'expiring' | 'expired' | 'cancelled'
+  label: string
+}[] = [
   { value: 'all', label: 'Todas' },
   { value: 'active', label: 'Activas' },
   { value: 'expiring', label: 'Por vencer' },
+  { value: 'expired', label: 'Vencidas' },
   { value: 'cancelled', label: 'Canceladas' },
 ]
 
@@ -185,12 +191,13 @@ function PlanFormDialog({
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
           <div className="space-y-2">
-            <Label>Nombre *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ej. Mensual" />
+            <Label htmlFor="plan-name">Nombre *</Label>
+            <Input id="plan-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ej. Mensual" />
           </div>
           <div className="space-y-2">
-            <Label>Descripción</Label>
+            <Label htmlFor="plan-description">Descripción</Label>
             <Textarea
+              id="plan-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="ej. Acceso ilimitado a todas las áreas"
@@ -198,8 +205,9 @@ function PlanFormDialog({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label>Precio *</Label>
+              <Label htmlFor="plan-price">Precio *</Label>
               <Input
+                id="plan-price"
                 type="number"
                 min={0}
                 step="0.01"
@@ -209,8 +217,9 @@ function PlanFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Duración *</Label>
+              <Label htmlFor="plan-duration">Duración *</Label>
               <Input
+                id="plan-duration"
                 type="number"
                 min={1}
                 value={durationDays}
@@ -219,8 +228,9 @@ function PlanFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Check-ins</Label>
+              <Label htmlFor="plan-checkins">Check-ins</Label>
               <Input
+                id="plan-checkins"
                 type="number"
                 min={0}
                 value={checkinsLimit}
@@ -241,12 +251,13 @@ function PlanFormDialog({
 
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              🎟️ Pases incluidos
+              Pases incluidos
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Pases por periodo</Label>
+                <Label htmlFor="plan-pass-qty">Pases por periodo</Label>
                 <Input
+                  id="plan-pass-qty"
                   type="number"
                   min={0}
                   value={passQuantity}
@@ -255,8 +266,9 @@ function PlanFormDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Periodo</Label>
+                <Label htmlFor="plan-pass-period">Periodo</Label>
                 <select
+                  id="plan-pass-period"
                   value={passPeriod}
                   onChange={(e) => setPassPeriod(e.target.value)}
                   className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
@@ -266,8 +278,9 @@ function PlanFormDialog({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label>Tipo de pase</Label>
+                <Label htmlFor="plan-pass-type">Tipo de pase</Label>
                 <select
+                  id="plan-pass-type"
                   value={passType}
                   onChange={(e) => setPassType(e.target.value)}
                   className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
@@ -278,8 +291,9 @@ function PlanFormDialog({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label>Vence en</Label>
+                <Label htmlFor="plan-pass-expiry">Vence en</Label>
                 <select
+                  id="plan-pass-expiry"
                   value={passExpiryHours}
                   onChange={(e) => setPassExpiryHours(e.target.value)}
                   className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
@@ -384,8 +398,9 @@ function RenewDialog({
         <form onSubmit={submit} className="grid gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Monto</Label>
+              <Label htmlFor="renew-amount">Monto</Label>
               <Input
+                id="renew-amount"
                 type="number"
                 min={0}
                 step="0.01"
@@ -395,8 +410,9 @@ function RenewDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Método</Label>
+              <Label htmlFor="renew-method">Método</Label>
               <select
+                id="renew-method"
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
                 className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -428,9 +444,10 @@ function RenewDialog({
 export function Memberships() {
   const [plans, setPlans] = useState<MembershipPlan[]>([])
   const [memberships, setMemberships] = useState<ActiveMembership[]>([])
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expiring' | 'cancelled'>(
-    'all',
-  )
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'active' | 'expiring' | 'expired' | 'cancelled'
+  >('all')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [planFormOpen, setPlanFormOpen] = useState(false)
@@ -453,6 +470,9 @@ export function Memberships() {
           : Promise.resolve([]),
         statusFilter === 'all' || statusFilter === 'expiring'
           ? apiFetch<ActiveMembership[]>('/memberships?status=expiring')
+          : Promise.resolve([]),
+        statusFilter === 'all' || statusFilter === 'expired'
+          ? apiFetch<ActiveMembership[]>('/memberships?status=expired')
           : Promise.resolve([]),
         statusFilter === 'all' || statusFilter === 'cancelled'
           ? apiFetch<ActiveMembership[]>('/memberships?status=cancelled')
@@ -491,7 +511,11 @@ export function Memberships() {
       })
       refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar el plan')
+      toast({
+        title: 'No se pudo actualizar el plan',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      })
     }
   }
 
@@ -503,7 +527,11 @@ export function Memberships() {
       setDeletePlan(null)
       refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo eliminar el plan')
+      toast({
+        title: 'No se pudo eliminar el plan',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      })
     }
   }
 
@@ -522,36 +550,48 @@ export function Memberships() {
       setCancelFor(null)
       refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cancelar la membresía')
+      toast({
+        title: 'No se pudo cancelar la membresía',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'error',
+      })
     }
   }
+
+  const filteredMemberships = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return memberships
+    return memberships.filter(
+      (m) =>
+        m.member_name.toLowerCase().includes(q) || (m.plan_name ?? '').toLowerCase().includes(q),
+    )
+  }, [memberships, search])
 
   return (
     <AppLayout>
     <div className="mx-auto w-full max-w-6xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Membresías</h1>
-          <p className="text-sm text-muted-foreground">
-            Planes de suscripción y membresías activas de los socios
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setEditingPlan(null)
-              setPlanFormOpen(true)
-            }}
-          >
-            <Plus /> Nuevo plan
-          </Button>
-          <Button size="sm" onClick={() => setAssignOpen(true)}>
-            <CreditCard /> Asignar plan
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Membresías"
+        subtitle="Planes de suscripción y membresías activas de los socios"
+        icon={BadgeCheck}
+        actions={
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setEditingPlan(null)
+                setPlanFormOpen(true)
+              }}
+            >
+              <Plus /> Nuevo plan
+            </Button>
+            <Button size="sm" onClick={() => setAssignOpen(true)}>
+              <CreditCard /> Asignar plan
+            </Button>
+          </div>
+        }
+      />
 
       {error && <ErrorState description={error} onRetry={refresh} className="mb-6" />}
       {loading && <LoadingState label="Cargando membresías…" />}
@@ -603,7 +643,7 @@ export function Memberships() {
                     <CardContent className="space-y-3">
                       <div className="flex items-end gap-2">
                         <span className="font-mono text-2xl font-bold tabular-nums tracking-tight">
-                          {MXN.format(p.price)}
+                          {formatCurrency(p.price, 2)}
                         </span>
                         <span className="pb-1 text-sm text-muted-foreground">
                           / {p.duration_days} días
@@ -633,6 +673,7 @@ export function Memberships() {
                           size="sm"
                           variant="ghost"
                           className="text-destructive"
+                          aria-label={`Eliminar plan ${p.name}`}
                           onClick={() => setDeletePlan(p)}
                         >
                           <Trash2 />
@@ -650,26 +691,37 @@ export function Memberships() {
               <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Membresías de socios
               </h2>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {STATUS_OPTIONS.map((opt) => {
-                  const active = statusFilter === opt.value
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setStatusFilter(opt.value)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
-                        active
-                          ? 'border-primary bg-primary text-primary-foreground shadow-glow'
-                          : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
+              <ListToolbar className="mb-0">
+                <SearchInput
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onClear={() => setSearch('')}
+                  placeholder="Buscar socio o plan…"
+                  className="w-full sm:w-56"
+                  aria-label="Buscar membresía"
+                />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {STATUS_OPTIONS.map((opt) => {
+                    const active = statusFilter === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setStatusFilter(opt.value)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                          active
+                            ? 'border-primary bg-primary text-primary-foreground shadow-glow'
+                            : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </ListToolbar>
             </div>
 
             {memberships.length === 0 ? (
@@ -682,6 +734,12 @@ export function Memberships() {
                     <Plus /> Asignar plan
                   </Button>
                 }
+              />
+            ) : filteredMemberships.length === 0 ? (
+              <EmptyState
+                title="Sin resultados"
+                description="Ajusta la búsqueda o el filtro de estado."
+                icon={CreditCard}
               />
             ) : (
               <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
@@ -697,7 +755,7 @@ export function Memberships() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {memberships.map((m) => {
+                    {filteredMemberships.map((m) => {
                       const meta = MEMBERSHIP_STATUS[m.status] ?? {
                         label: m.status,
                         variant: 'soft-secondary' as const,

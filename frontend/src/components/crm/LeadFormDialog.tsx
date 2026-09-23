@@ -123,21 +123,23 @@ export function LeadFormDialog({
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">
           <div className="space-y-2">
-            <Label>Nombre *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+            <Label htmlFor="lf-name">Nombre *</Label>
+            <Input id="lf-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Teléfono</Label>
+              <Label htmlFor="lf-phone">Teléfono</Label>
               <Input
+                id="lf-phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="55 1234 5678"
               />
             </div>
             <div className="space-y-2">
-              <Label>Correo</Label>
+              <Label htmlFor="lf-email">Correo</Label>
               <Input
+                id="lf-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -145,10 +147,11 @@ export function LeadFormDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Fuente</Label>
+              <Label htmlFor="lf-source">Fuente</Label>
               <select
+                id="lf-source"
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
                 className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -162,8 +165,9 @@ export function LeadFormDialog({
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Valor estimado (MXN)</Label>
+              <Label htmlFor="lf-value">Valor estimado (MXN)</Label>
               <Input
+                id="lf-value"
                 type="number"
                 min={0}
                 step="0.01"
@@ -174,8 +178,9 @@ export function LeadFormDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Etapa</Label>
+            <Label htmlFor="lf-status">Etapa</Label>
             <select
+              id="lf-status"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -188,14 +193,19 @@ export function LeadFormDialog({
             </select>
           </div>
           <div className="space-y-2">
-            <Label>Notas</Label>
+            <Label htmlFor="lf-notes">Notas</Label>
             <Textarea
+              id="lf-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Interés, plan sugerido, seguimientos…"
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
